@@ -1,0 +1,691 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>GLOM Authorization</title>
+  <style>
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background: radial-gradient(circle at top, #330000 0%, #050005 45%, #000000 100%);
+      color: #f5f5f5;
+    }
+    .layout {
+      display: flex;
+      min-height: 100vh;
+    }
+    .sidebar {
+      width: 230px;
+      background: linear-gradient(180deg, #190000 0%, #050000 100%);
+      border-right: 1px solid #440000;
+      padding: 18px;
+      position: sticky;
+      top: 0;
+      align-self: flex-start;
+      box-shadow: 0 0 18px rgba(255,0,0,0.25);
+    }
+    .glom-logo {
+      font-size: 20px;
+      letter-spacing: 4px;
+      font-weight: 900;
+      text-transform: uppercase;
+      color: #ff3b3b;
+      text-shadow: 0 0 10px rgba(255,0,0,0.7);
+      margin-bottom: 4px;
+    }
+    .glom-sub {
+      font-size: 11px;
+      text-transform: uppercase;
+      color: #999;
+      margin-bottom: 18px;
+    }
+    .nav-link {
+      display: block;
+      padding: 8px 10px;
+      margin-bottom: 6px;
+      font-size: 14px;
+      border-radius: 6px;
+      color: #ddd;
+      text-decoration: none;
+      border: 1px solid transparent;
+      cursor: pointer;
+    }
+    .nav-link:hover {
+      background: rgba(255,0,0,0.1);
+      border-color: #911111;
+    }
+    .nav-link.active {
+      background: linear-gradient(90deg,#ff1a1a,#b30000);
+      border-color: #ff4c4c;
+      color: white;
+      box-shadow: 0 0 16px rgba(255,0,0,0.6);
+    }
+    .danger-badge {
+      display: inline-block;
+      padding: 3px 8px;
+      border-radius: 999px;
+      font-size: 10px;
+      text-transform: uppercase;
+      border: 1px solid #ff5555;
+      color: #ff7f7f;
+      margin-top: 6px;
+    }
+    .content {
+      flex: 1;
+      padding: 24px 30px;
+    }
+    .card {
+      background: radial-gradient(circle at top, #250000 0%, #070007 65%);
+      border-radius: 12px;
+      border: 1px solid #3b0000;
+      padding: 18px 20px;
+      margin-bottom: 18px;
+      box-shadow: 0 0 22px rgba(0,0,0,0.6);
+    }
+    .card-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 10px;
+    }
+    .card-title {
+      font-size: 18px;
+      font-weight: 700;
+      letter-spacing: 1px;
+    }
+    .tag {
+      font-size: 11px;
+      padding: 3px 7px;
+      border-radius: 999px;
+      border: 1px solid #555;
+      text-transform: uppercase;
+      color: #ccc;
+    }
+    .btn {
+      display: inline-block;
+      padding: 8px 14px;
+      border-radius: 999px;
+      border: none;
+      cursor: pointer;
+      font-size: 13px;
+      font-weight: 600;
+      letter-spacing: 0.5px;
+      text-transform: uppercase;
+      background: linear-gradient(90deg,#ff3131,#b30000);
+      color: white;
+      box-shadow: 0 0 12px rgba(255,0,0,0.5);
+      margin-right: 6px;
+    }
+    .btn.secondary {
+      background: rgba(255,255,255,0.04);
+      color: #f3f3f3;
+      box-shadow: none;
+      border: 1px solid #555;
+    }
+    .btn.danger {
+      background: linear-gradient(90deg,#ff0000,#7a0000);
+    }
+    .btn:disabled {
+      opacity: 0.4;
+      cursor: default;
+      box-shadow: none;
+    }
+    input, select {
+      width: 100%;
+      padding: 8px 10px;
+      margin-bottom: 10px;
+      border-radius: 8px;
+      border: 1px solid #3f0000;
+      background: rgba(5,0,0,0.9);
+      color: #f5f5f5;
+      font-size: 13px;
+      outline: none;
+    }
+    input:focus {
+      border-color: #ff3030;
+      box-shadow: 0 0 10px rgba(255,0,0,0.4);
+    }
+    .muted {
+      font-size: 12px;
+      color: #aaa;
+    }
+    .status-ok {
+      color: #6dff8b;
+      font-size: 12px;
+    }
+    .status-bad {
+      color: #ff6060;
+      font-size: 12px;
+    }
+    .pill {
+      display: inline-block;
+      padding: 3px 8px;
+      border-radius: 999px;
+      font-size: 11px;
+      border: 1px solid #333;
+      margin-right: 4px;
+    }
+    .pill.red { border-color: #ff3030; color: #ff6f6f; }
+    .pill.blue { border-color: #3f75ff; color: #7fa4ff; }
+    .section {
+      display: none;
+    }
+    .section.active {
+      display: block;
+    }
+    .header-line {
+      font-size: 22px;
+      font-weight: 800;
+      letter-spacing: 1px;
+      margin-bottom: 4px;
+    }
+    .header-sub {
+      font-size: 12px;
+      color: #b9b9b9;
+      margin-bottom: 14px;
+    }
+    .grid-2 {
+      display: grid;
+      grid-template-columns: repeat(auto-fit,minmax(260px,1fr));
+      gap: 12px;
+    }
+    .qr-preview {
+      margin-top: 10px;
+      border-radius: 10px;
+      overflow: hidden;
+      border: 1px solid #550000;
+      background: #000;
+      padding: 4px;
+      max-width: 220px;
+    }
+    .qr-preview img {
+      width: 100%;
+      display: block;
+    }
+    .session-item {
+      font-size: 12px;
+      border-bottom: 1px solid rgba(255,255,255,0.05);
+      padding: 6px 0;
+    }
+    .session-item:last-child {
+      border-bottom: none;
+    }
+    .session-meta {
+      color: #999;
+      font-size: 11px;
+    }
+
+    .login-wrapper {
+      max-width: 340px;
+      margin: 80px auto;
+    }
+    .login-title {
+      font-size: 22px;
+      font-weight: 800;
+      margin-bottom: 4px;
+    }
+    .login-sub {
+      font-size: 12px;
+      color: #bbb;
+      margin-bottom: 14px;
+    }
+    .top-warning {
+      font-size: 11px;
+      padding: 8px 10px;
+      background: rgba(255,0,0,0.1);
+      border-radius: 8px;
+      border: 1px solid rgba(255,0,0,0.4);
+      margin-bottom: 10px;
+    }
+  </style>
+</head>
+<body>
+  <div id="app"></div>
+
+  <script>
+    const apiBase = "/glom/api";
+
+    function getToken() {
+      return localStorage.getItem("token");
+    }
+    function setAuth(data) {
+      localStorage.setItem("token", data.token);
+      localStorage.setItem("user", JSON.stringify(data.user));
+    }
+    function clearAuth() {
+      localStorage.removeItem("token");
+      localStorage.removeItem("user");
+    }
+    function getUser() {
+      const raw = localStorage.getItem("user");
+      if (!raw) return null;
+      try { return JSON.parse(raw); } catch { return null; }
+    }
+
+    async function api(path, method = "GET", body = null) {
+      const headers = { "Content-Type": "application/json" };
+      const token = getToken();
+      if (token) headers["Authorization"] = "Bearer " + token;
+      const res = await fetch(apiBase + path, {
+        method,
+        headers,
+        body: body ? JSON.stringify(body) : null
+      });
+      if (res.status === 401) {
+        clearAuth();
+      }
+      return res;
+    }
+
+    function renderApp() {
+      const root = document.getElementById("app");
+      const user = getUser();
+      if (!getToken() || !user) {
+        // LOGIN PAGE
+        root.innerHTML = `
+          <div class="login-wrapper">
+            <div class="glom-logo">GLOM</div>
+            <div class="glom-sub">Authorization System</div>
+            <div class="login-title">Sign in</div>
+            <div class="login-sub">Enter your panel credentials to continue.</div>
+            <div class="top-warning">
+              For your security, it is highly recommended to enable 2FA and link your Discord account.
+              If unauthorized access occurs, we are not responsible.
+            </div>
+            <input id="login-username" placeholder="Username" />
+            <input id="login-password" placeholder="Password" type="password" />
+            <input id="login-code" placeholder="2FA Code (if enabled)" />
+            <button class="btn" onclick="doLogin()">Login</button>
+            <div id="login-status" class="muted" style="margin-top:8px;"></div>
+          </div>
+        `;
+      } else {
+        // DASHBOARD LAYOUT
+        root.innerHTML = `
+          <div class="layout">
+            <div class="sidebar">
+              <div class="glom-logo">GLOM</div>
+              <div class="glom-sub">Authorization</div>
+              <div class="danger-badge">LIVE PRODUCTION</div>
+
+              <div style="margin-top:18px;">
+                <div class="nav-link active" data-section="dashboard" onclick="switchSection('dashboard', this)">Dashboard</div>
+                <div class="nav-link" data-section="security" onclick="switchSection('security', this)">Security</div>
+                <div class="nav-link" data-section="products" onclick="switchSection('products', this)">Products</div>
+              </div>
+
+              <div style="margin-top:24px;font-size:11px;color:#888;">
+                <div>Logged in as:</div>
+                <div style="margin-top:2px;color:#f5f5f5;">${user.username}</div>
+                <div class="pill red" style="margin-top:6px;">${user.roleCode}</div>
+              </div>
+
+              <div style="margin-top:18px;">
+                <button class="btn secondary" onclick="doLogout()">Logout</button>
+              </div>
+            </div>
+            <div class="content">
+              <div id="section-dashboard" class="section active">
+                <div class="card">
+                  <div class="card-header">
+                    <div>
+                      <div class="header-line">Dashboard</div>
+                      <div class="header-sub">Overview of your GLOM Authorization environment.</div>
+                    </div>
+                    <div class="tag">Real-time</div>
+                  </div>
+                  <div class="grid-2">
+                    <div>
+                      <div class="muted">Account</div>
+                      <div style="font-size:14px;margin-top:4px;">${user.username}</div>
+                      <div class="pill red" style="margin-top:4px;">Role: ${user.roleCode}</div>
+                    </div>
+                    <div>
+                      <div class="muted">Security Status</div>
+                      <div id="dash-security-status" style="margin-top:4px;font-size:13px;">Loading...</div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div id="section-security" class="section">
+                <div class="card">
+                  <div class="card-header">
+                    <div>
+                      <div class="header-line">Security</div>
+                      <div class="header-sub">Two-factor authentication and Discord linking.</div>
+                    </div>
+                    <div class="tag">Critical</div>
+                  </div>
+
+                  <div class="grid-2">
+                    <div>
+                      <div class="muted">Two-Factor Authentication (2FA)</div>
+                      <div id="sec-2fa-status" style="margin-top:4px;"></div>
+                      <div style="margin-top:8px;">
+                        <button class="btn" id="btn-2fa-enable" onclick="handle2FAEnable()">Enable 2FA</button>
+                        <button class="btn secondary" id="btn-2fa-disable" onclick="handle2FADisable()">Disable 2FA</button>
+                      </div>
+                      <div style="margin-top:8px;font-size:12px;color:#ccc;">
+                        2FA is optional, but highly recommended. If you do not enable it, we are not responsible for any unauthorized access.
+                      </div>
+                      <div class="qr-preview" id="sec-2fa-qr" style="display:none;">
+                        <img id="sec-2fa-qr-img" src="" alt="2FA QR" />
+                      </div>
+                    </div>
+
+                    <div>
+                      <div class="muted">Discord Account Linking</div>
+                      <div id="sec-discord-status" style="margin-top:4px;"></div>
+                      <div style="margin-top:8px;">
+                        <button class="btn" id="btn-discord-connect" onclick="handleDiscordConnect()">Connect Discord</button>
+                      </div>
+                      <div style="margin-top:8px;font-size:12px;color:#ccc;">
+                        Discord linking is optional, but highly recommended. If your account gets stolen and Discord is not linked, we are not responsible.
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <div class="card">
+                  <div class="card-header">
+                    <div class="card-title">Active Sessions</div>
+                    <div class="tag">Sessions</div>
+                  </div>
+                  <div id="sec-sessions-list" class="muted">Loading...</div>
+                  <div style="margin-top:10px;">
+                    <button class="btn danger" onclick="killAllSessions()">Log out all devices</button>
+                  </div>
+                </div>
+              </div>
+
+              <div id="section-products" class="section">
+                <div class="card">
+                  <div class="card-header">
+                    <div>
+                      <div class="header-line">Products</div>
+                      <div class="header-sub">Global products (MASTER / OWNER can manage).</div>
+                    </div>
+                    <div class="tag">Shared</div>
+                  </div>
+                  <div id="prod-message" class="muted" style="margin-bottom:8px;"></div>
+                  <div id="prod-form">
+                    <input id="prod-name" placeholder="Product name" />
+                    <input id="prod-desc" placeholder="Description (optional)" />
+                    <button class="btn" onclick="createProduct()">Create Product</button>
+                  </div>
+                  <div style="margin-top:12px;">
+                    <div class="muted">All Products</div>
+                    <div id="prod-list" style="margin-top:6px;font-size:13px;">Loading...</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        `;
+
+        // بعد الرسم → تحميل بيانات الأمن والمنتجات
+        loadSecuritySummary();
+        loadSecurityDetails();
+        loadProducts();
+      }
+    }
+
+    // ========== LOGIN ==========
+    async function doLogin() {
+      const u = document.getElementById("login-username").value.trim();
+      const p = document.getElementById("login-password").value.trim();
+      const c = document.getElementById("login-code").value.trim();
+      const status = document.getElementById("login-status");
+      status.textContent = "Checking credentials...";
+      try {
+        const res = await api("/auth/login", "POST", {
+          username: u,
+          password: p,
+          code: c || undefined
+        });
+        const data = await res.json();
+        if (!data.success) {
+          status.textContent = data.message || "Login failed";
+          status.className = "status-bad";
+        } else {
+          setAuth(data);
+          renderApp();
+        }
+      } catch (err) {
+        status.textContent = "Error connecting to server";
+        status.className = "status-bad";
+      }
+    }
+
+    function doLogout() {
+      clearAuth();
+      location.href = "/auth/login";
+    }
+
+    // ========== SECTIONS ==========
+    function switchSection(name, el) {
+      document.querySelectorAll(".section").forEach(s => s.classList.remove("active"));
+      const sec = document.getElementById("section-" + name);
+      if (sec) sec.classList.add("active");
+
+      document.querySelectorAll(".nav-link").forEach(a => a.classList.remove("active"));
+      if (el) el.classList.add("active");
+    }
+
+    // ========== SECURITY ==========
+    async function loadSecuritySummary() {
+      const box = document.getElementById("dash-security-status");
+      if (!box) return;
+      try {
+        const res = await api("/security/profile");
+        const data = await res.json();
+        if (!data.success) {
+          box.innerHTML = '<span class="status-bad">Unknown (failed to load)</span>';
+          return;
+        }
+        const t = data.twoFAEnabled
+          ? '<span class="status-ok">2FA Enabled</span>'
+          : '<span class="status-bad">2FA Disabled</span>';
+        const d = data.discordLinked
+          ? '<span class="status-ok">Discord linked</span>'
+          : '<span class="status-bad">Discord not linked</span>';
+        box.innerHTML = t + " · " + d;
+      } catch {
+        box.innerHTML = '<span class="status-bad">Error loading security status</span>';
+      }
+    }
+
+    async function loadSecurityDetails() {
+      const box2 = document.getElementById("sec-2fa-status");
+      const boxD = document.getElementById("sec-discord-status");
+      const qrWrap = document.getElementById("sec-2fa-qr");
+      if (!box2 || !boxD) return;
+      try {
+        const res = await api("/security/profile");
+        const data = await res.json();
+        if (!data.success) {
+          box2.innerHTML = '<span class="status-bad">Failed to load 2FA state</span>';
+          boxD.innerHTML = '<span class="status-bad">Failed to load Discord state</span>';
+          return;
+        }
+        box2.innerHTML = data.twoFAEnabled
+          ? '<span class="status-ok">2FA is enabled</span>'
+          : '<span class="status-bad">2FA is disabled</span>';
+
+        boxD.innerHTML = data.discordLinked
+          ? '<span class="status-ok">Discord is linked</span>'
+          : '<span class="status-bad">Discord is not linked</span>';
+
+        qrWrap.style.display = "none";
+
+        // SESSIONS
+        loadSessions();
+      } catch {
+        box2.innerHTML = '<span class="status-bad">Error loading 2FA</span>';
+        boxD.innerHTML = '<span class="status-bad">Error loading Discord</span>';
+      }
+    }
+
+    async function handle2FAEnable() {
+      try {
+        const res = await api("/security/2fa/setup", "POST", {});
+        const data = await res.json();
+        if (!data.success) {
+          alert(data.message || "Failed to start 2FA");
+          return;
+        }
+        const qrWrap = document.getElementById("sec-2fa-qr");
+        const img = document.getElementById("sec-2fa-qr-img");
+        img.src = data.qr;
+        qrWrap.style.display = "block";
+
+        const code = prompt("Enter 2FA code from your authenticator to complete setup:");
+        if (!code) return;
+        const res2 = await api("/security/2fa/verify", "POST", { code });
+        const data2 = await res2.json();
+        alert(data2.message || "2FA verification done");
+        loadSecuritySummary();
+        loadSecurityDetails();
+      } catch {
+        alert("Error during 2FA setup");
+      }
+    }
+
+    async function handle2FADisable() {
+      if (!confirm("Disable 2FA for this account?")) return;
+      try {
+        const res = await api("/security/2fa/disable", "POST", {});
+        const data = await res.json();
+        alert(data.message || "2FA disabled");
+        loadSecuritySummary();
+        loadSecurityDetails();
+      } catch {
+        alert("Error disabling 2FA");
+      }
+    }
+
+    async function handleDiscordConnect() {
+      // سيتم تحويل المتصفح إلى /glom/api/security/discord/login
+      window.location.href = apiBase + "/security/discord/login";
+    }
+
+    async function loadSessions() {
+      const box = document.getElementById("sec-sessions-list");
+      if (!box) return;
+      try {
+        const res = await api("/security/sessions");
+        const data = await res.json();
+        if (!data.success) {
+          box.innerHTML = '<span class="status-bad">Failed to load sessions</span>';
+          return;
+        }
+        if (!data.sessions || data.sessions.length === 0) {
+          box.innerHTML = "No active sessions.";
+          return;
+        }
+        box.innerHTML = data.sessions
+          .map(
+            (s) => `
+            <div class="session-item">
+              <div>${s.ip || "Unknown IP"}</div>
+              <div class="session-meta">${s.userAgent || "Unknown device"}</div>
+              <div class="session-meta">Created: ${new Date(s.createdAt).toLocaleString()}</div>
+            </div>
+          `
+          )
+          .join("");
+      } catch {
+        box.innerHTML = '<span class="status-bad">Error loading sessions</span>';
+      }
+    }
+
+    async function killAllSessions() {
+      if (!confirm("Log out all devices (including this one)?")) return;
+      try {
+        await api("/security/sessions", "DELETE");
+        alert("All sessions removed");
+        clearAuth();
+        location.href = "/auth/login";
+      } catch {
+        alert("Error removing sessions");
+      }
+    }
+
+    // ========== PRODUCTS ==========
+    async function loadProducts() {
+      const list = document.getElementById("prod-list");
+      const msg = document.getElementById("prod-message");
+      if (!list) return;
+      list.textContent = "Loading...";
+      msg.textContent = "";
+      try {
+        const res = await api("/products/all");
+        const data = await res.json();
+        if (!data.success) {
+          list.innerHTML = '<span class="status-bad">Failed to load products</span>';
+          return;
+        }
+        if (!data.products || data.products.length === 0) {
+          list.textContent = "No products yet.";
+          return;
+        }
+        list.innerHTML = data.products
+          .map(
+            (p) =>
+              `<div>- <strong>${p.name}</strong> <span class="muted">${p.description || ""}</span></div>`
+          )
+          .join("");
+      } catch {
+        list.innerHTML = '<span class="status-bad">Error loading products</span>';
+      }
+    }
+
+    async function createProduct() {
+      const name = document.getElementById("prod-name").value.trim();
+      const desc = document.getElementById("prod-desc").value.trim();
+      const msg = document.getElementById("prod-message");
+      if (!name) {
+        msg.textContent = "Name is required.";
+        msg.className = "status-bad";
+        return;
+      }
+      try {
+        const res = await api("/products/create", "POST", { name, description: desc });
+        const data = await res.json();
+        if (!data.success) {
+          msg.textContent = data.message || "Failed to create product.";
+          msg.className = "status-bad";
+        } else {
+          msg.textContent = "Product created.";
+          msg.className = "status-ok";
+          document.getElementById("prod-name").value = "";
+          document.getElementById("prod-desc").value = "";
+          loadProducts();
+        }
+      } catch {
+        msg.textContent = "Error creating product.";
+        msg.className = "status-bad";
+      }
+    }
+
+    // ========== INIT ==========
+    (async function init() {
+      // إذا عنده توكن → نعمل محاولة تحميل profile عشان نتاكد انه لسه صالح
+      if (getToken()) {
+        try {
+          const res = await api("/security/profile");
+          const data = await res.json();
+          if (!data.success) {
+            clearAuth();
+          }
+        } catch {
+          clearAuth();
+        }
+      }
+      renderApp();
+    })();
+  </script>
+</body>
+</html>

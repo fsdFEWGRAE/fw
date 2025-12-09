@@ -1,0 +1,21 @@
+{
+  "name": "glom-authorization",
+  "version": "1.0.0",
+  "description": "GLOM Authorization System - Single Service (Backend + Bloody Dark Panel)",
+  "main": "index.js",
+  "type": "module",
+  "scripts": {
+    "start": "node index.js"
+  },
+  "dependencies": {
+    "body-parser": "^1.20.3",
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.5",
+    "express": "^4.21.2",
+    "jsonwebtoken": "^9.0.2",
+    "mongoose": "^8.8.0",
+    "node-fetch": "^3.3.2",
+    "qrcode": "^1.5.4",
+    "speakeasy": "^2.0.0"
+  }
+}
