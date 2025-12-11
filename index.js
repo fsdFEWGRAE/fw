@@ -171,6 +171,17 @@ function randomKey(len = 32) {
 // ======================= AUTH ROUTES ==================================
 
 // LOGIN (Username + Password only)
+import path from "path";
+import { fileURLToPath } from "url";
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
+// Serve panel UI
+app.get("/", (req, res) => {
+    res.sendFile(path.join(__dirname, "theme.html"));
+});
+
 app.post("/glom/api/auth/login", async (req, res) => {
   try {
     const { username, password } = req.body;
@@ -870,3 +881,4 @@ app.get("/glom/api/ping", (req, res) => {
 app.listen(PORT, () => {
   console.log(`GLOM Authorization API running on port ${PORT}`);
 });
+
