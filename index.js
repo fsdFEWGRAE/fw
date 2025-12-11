@@ -244,7 +244,15 @@ app.get("/glom/api/auth/me", auth, async (req, res) => {
     });
   } catch (e) {
     res.status(500).json({ success: false, message: "Server error" });
-  }
+    import path from "path";
+import { fileURLToPath } from "url";
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
+// serve panel
+app.get("*", (req, res) => {
+    res.sendFile(path.join(__dirname, "theme.html"));
 });
 
 // ======================= PRODUCT ROUTES ===============================
@@ -881,4 +889,5 @@ app.get("/glom/api/ping", (req, res) => {
 app.listen(PORT, () => {
   console.log(`GLOM Authorization API running on port ${PORT}`);
 });
+
 
