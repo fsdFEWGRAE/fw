@@ -1,691 +1,759 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <title>GLOM Authorization</title>
-  <style>
-    * { box-sizing: border-box; }
-    body {
-      margin: 0;
-      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-      background: radial-gradient(circle at top, #330000 0%, #050005 45%, #000000 100%);
-      color: #f5f5f5;
-    }
-    .layout {
-      display: flex;
-      min-height: 100vh;
-    }
-    .sidebar {
-      width: 230px;
-      background: linear-gradient(180deg, #190000 0%, #050000 100%);
-      border-right: 1px solid #440000;
-      padding: 18px;
-      position: sticky;
-      top: 0;
-      align-self: flex-start;
-      box-shadow: 0 0 18px rgba(255,0,0,0.25);
-    }
-    .glom-logo {
-      font-size: 20px;
-      letter-spacing: 4px;
-      font-weight: 900;
-      text-transform: uppercase;
-      color: #ff3b3b;
-      text-shadow: 0 0 10px rgba(255,0,0,0.7);
-      margin-bottom: 4px;
-    }
-    .glom-sub {
-      font-size: 11px;
-      text-transform: uppercase;
-      color: #999;
-      margin-bottom: 18px;
-    }
-    .nav-link {
-      display: block;
-      padding: 8px 10px;
-      margin-bottom: 6px;
-      font-size: 14px;
-      border-radius: 6px;
-      color: #ddd;
-      text-decoration: none;
-      border: 1px solid transparent;
-      cursor: pointer;
-    }
-    .nav-link:hover {
-      background: rgba(255,0,0,0.1);
-      border-color: #911111;
-    }
-    .nav-link.active {
-      background: linear-gradient(90deg,#ff1a1a,#b30000);
-      border-color: #ff4c4c;
-      color: white;
-      box-shadow: 0 0 16px rgba(255,0,0,0.6);
-    }
-    .danger-badge {
-      display: inline-block;
-      padding: 3px 8px;
-      border-radius: 999px;
-      font-size: 10px;
-      text-transform: uppercase;
-      border: 1px solid #ff5555;
-      color: #ff7f7f;
-      margin-top: 6px;
-    }
-    .content {
-      flex: 1;
-      padding: 24px 30px;
-    }
-    .card {
-      background: radial-gradient(circle at top, #250000 0%, #070007 65%);
-      border-radius: 12px;
-      border: 1px solid #3b0000;
-      padding: 18px 20px;
-      margin-bottom: 18px;
-      box-shadow: 0 0 22px rgba(0,0,0,0.6);
-    }
-    .card-header {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      margin-bottom: 10px;
-    }
-    .card-title {
-      font-size: 18px;
-      font-weight: 700;
-      letter-spacing: 1px;
-    }
-    .tag {
-      font-size: 11px;
-      padding: 3px 7px;
-      border-radius: 999px;
-      border: 1px solid #555;
-      text-transform: uppercase;
-      color: #ccc;
-    }
-    .btn {
-      display: inline-block;
-      padding: 8px 14px;
-      border-radius: 999px;
-      border: none;
-      cursor: pointer;
-      font-size: 13px;
-      font-weight: 600;
-      letter-spacing: 0.5px;
-      text-transform: uppercase;
-      background: linear-gradient(90deg,#ff3131,#b30000);
-      color: white;
-      box-shadow: 0 0 12px rgba(255,0,0,0.5);
-      margin-right: 6px;
-    }
-    .btn.secondary {
-      background: rgba(255,255,255,0.04);
-      color: #f3f3f3;
-      box-shadow: none;
-      border: 1px solid #555;
-    }
-    .btn.danger {
-      background: linear-gradient(90deg,#ff0000,#7a0000);
-    }
-    .btn:disabled {
-      opacity: 0.4;
-      cursor: default;
-      box-shadow: none;
-    }
-    input, select {
-      width: 100%;
-      padding: 8px 10px;
-      margin-bottom: 10px;
-      border-radius: 8px;
-      border: 1px solid #3f0000;
-      background: rgba(5,0,0,0.9);
-      color: #f5f5f5;
-      font-size: 13px;
-      outline: none;
-    }
-    input:focus {
-      border-color: #ff3030;
-      box-shadow: 0 0 10px rgba(255,0,0,0.4);
-    }
-    .muted {
-      font-size: 12px;
-      color: #aaa;
-    }
-    .status-ok {
-      color: #6dff8b;
-      font-size: 12px;
-    }
-    .status-bad {
-      color: #ff6060;
-      font-size: 12px;
-    }
-    .pill {
-      display: inline-block;
-      padding: 3px 8px;
-      border-radius: 999px;
-      font-size: 11px;
-      border: 1px solid #333;
-      margin-right: 4px;
-    }
-    .pill.red { border-color: #ff3030; color: #ff6f6f; }
-    .pill.blue { border-color: #3f75ff; color: #7fa4ff; }
-    .section {
-      display: none;
-    }
-    .section.active {
-      display: block;
-    }
-    .header-line {
-      font-size: 22px;
-      font-weight: 800;
-      letter-spacing: 1px;
-      margin-bottom: 4px;
-    }
-    .header-sub {
-      font-size: 12px;
-      color: #b9b9b9;
-      margin-bottom: 14px;
-    }
-    .grid-2 {
-      display: grid;
-      grid-template-columns: repeat(auto-fit,minmax(260px,1fr));
-      gap: 12px;
-    }
-    .qr-preview {
-      margin-top: 10px;
-      border-radius: 10px;
-      overflow: hidden;
-      border: 1px solid #550000;
-      background: #000;
-      padding: 4px;
-      max-width: 220px;
-    }
-    .qr-preview img {
-      width: 100%;
-      display: block;
-    }
-    .session-item {
-      font-size: 12px;
-      border-bottom: 1px solid rgba(255,255,255,0.05);
-      padding: 6px 0;
-    }
-    .session-item:last-child {
-      border-bottom: none;
-    }
-    .session-meta {
-      color: #999;
-      font-size: 11px;
-    }
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>GLOM AUTHORIZATION</title>
 
-    .login-wrapper {
-      max-width: 340px;
-      margin: 80px auto;
-    }
-    .login-title {
-      font-size: 22px;
-      font-weight: 800;
-      margin-bottom: 4px;
-    }
-    .login-sub {
-      font-size: 12px;
-      color: #bbb;
-      margin-bottom: 14px;
-    }
-    .top-warning {
-      font-size: 11px;
-      padding: 8px 10px;
-      background: rgba(255,0,0,0.1);
-      border-radius: 8px;
-      border: 1px solid rgba(255,0,0,0.4);
-      margin-bottom: 10px;
-    }
-  </style>
+    <!-- ===== GLOM THEME ===== -->
+    <style>
+        @import url("https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;700;900&display=swap");
+
+        body {
+            margin: 0;
+            background: radial-gradient(circle at top, #2b0000, #000000 70%);
+            font-family: "Montserrat", sans-serif;
+            color: white;
+            overflow: hidden;
+        }
+
+        /* ===== Neon Red Glow ===== */
+        .glow-red {
+            text-shadow: 0 0 15px #ff0000, 0 0 30px #b30000;
+        }
+
+        /* ===== Layout ===== */
+        #app {
+            display: flex;
+            height: 100vh;
+            width: 100vw;
+        }
+
+        /* ===== Sidebar ===== */
+        .sidebar {
+            width: 230px;
+            background: rgba(0, 0, 0, 0.8);
+            border-right: 2px solid #700000;
+            padding: 25px 15px;
+            box-sizing: border-box;
+        }
+
+        .logo {
+            font-size: 26px;
+            font-weight: 900;
+            letter-spacing: 3px;
+            margin-bottom: 35px;
+        }
+
+        .logo span {
+            color: #ff1a1a;
+        }
+
+        .nav-btn {
+            width: 100%;
+            padding: 12px 10px;
+            margin-bottom: 10px;
+            background: #1a0000;
+            border: 1px solid #700000;
+            color: #ff4d4d;
+            cursor: pointer;
+            text-align: left;
+            border-radius: 6px;
+            transition: 0.2s;
+        }
+
+        .nav-btn:hover, .nav-btn.active {
+            background: #700000;
+            color: white;
+        }
+
+        /* ===== Main Content ===== */
+        .content {
+            flex: 1;
+            padding: 25px;
+            overflow-y: auto;
+        }
+
+        .page {
+            display: none;
+        }
+
+        .page.active {
+            display: block;
+        }
+
+        /* ===== Inputs ===== */
+        input, select {
+            background: black;
+            border: 1px solid #700000;
+            padding: 10px;
+            color: white;
+            border-radius: 6px;
+            width: 100%;
+            margin-bottom: 12px;
+        }
+
+        button.glom-btn {
+            padding: 10px 20px;
+            border: none;
+            background: #ff0000;
+            color: white;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: 0.2s;
+            font-weight: bold;
+            box-shadow: 0 0 10px #b30000;
+        }
+
+        button.glom-btn:hover {
+            background: #b30000;
+        }
+
+        /* ===== Tables ===== */
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            background: #0d0000;
+        }
+
+        th, td {
+            padding: 12px;
+            border: 1px solid #330000;
+        }
+
+        th {
+            background: #330000;
+        }
+    </style>
 </head>
 <body>
-  <div id="app"></div>
 
-  <script>
-    const apiBase = "/glom/api";
+<div id="app">
+    <!-- ===== SIDEBAR ===== -->
+    <div class="sidebar">
+        <div class="logo glow-red">G L O M<br><small>AUTHORIZATION</small></div>
 
-    function getToken() {
-      return localStorage.getItem("token");
+        <button class="nav-btn active" onclick="openPage('dashboard')">Dashboard</button>
+        <button class="nav-btn" onclick="openPage('security')">Security</button>
+        <button class="nav-btn" onclick="openPage('products')">Products</button>
+        <button class="nav-btn" onclick="openPage('keys')">Keys</button>
+        <button class="nav-btn" onclick="openPage('sources')">Sources</button>
+        <button class="nav-btn" onclick="openPage('loader')">Loader Updates</button>
+
+        <hr style="border-color:#300" />
+
+        <button class="nav-btn" onclick="logout()">Logout</button>
+    </div>
+
+    <!-- ===== MAIN CONTENT ===== -->
+    <div class="content">
+
+        <!-- DASHBOARD -->
+        <div class="page active" id="dashboard">
+            <h1 class="glow-red">Dashboard</h1>
+            <p>Welcome to GLOM Authorization Panel.</p>
+        </div>
+
+        <!-- SECURITY -->
+        <div class="page" id="security">
+            <h1 class="glow-red">Security</h1>
+            <button class="glom-btn" onclick="enable2FA()">Enable 2FA</button>
+            <button class="glom-btn" onclick="disable2FA()">Disable 2FA</button>
+
+            <br><br>
+
+            <button class="glom-btn" onclick="connectDiscord()">Connect Discord</button>
+            <button class="glom-btn" onclick="disconnectDiscord()">Disconnect Discord</button>
+        </div>
+
+        <!-- PRODUCTS -->
+        <div class="page" id="products">
+            <h1 class="glow-red">Products</h1>
+
+            <input id="newProductName" placeholder="Product Name" />
+            <select id="newProductType">
+                <option value="account">Username + Password</option>
+                <option value="key">Key System</option>
+            </select>
+
+            <button class="glom-btn" onclick="createProduct()">Create Product</button>
+
+            <h2>All Products</h2>
+            <table id="productsTable"></table>
+        </div>
+        <!-- KEYS -->
+        <div class="page" id="keys">
+            <h1 class="glow-red">Keys</h1>
+
+            <select id="keyProductSelect"></select>
+            <input id="keyPanelUser" placeholder="Panel Username" />
+            <input id="keyDays" placeholder="Days (leave empty for lifetime)" />
+
+            <button class="glom-btn" onclick="createKey()">Create Key</button>
+
+            <h2>All Keys</h2>
+            <table id="keysTable"></table>
+        </div>
+
+        <!-- SOURCES / RESELLERS -->
+        <div class="page" id="sources">
+            <h1 class="glow-red">Users / Resellers</h1>
+
+            <select id="newUserRole">
+                <option value="OWNER">Owner Source</option>
+                <option value="SOURCE">Source</option>
+                <option value="PANEL">Panel</option>
+            </select>
+
+            <input id="newUserName" placeholder="Username" />
+            <input id="newUserPass" placeholder="Password" />
+
+            <button class="glom-btn" onclick="createUser()">Create User</button>
+
+            <h2>Users</h2>
+            <table id="usersTable"></table>
+        </div>
+
+        <!-- LOADER UPDATES -->
+        <div class="page" id="loader">
+            <h1 class="glow-red">Loader Updates</h1>
+
+            <select id="updateProductSelect"></select>
+            <input id="updateVersion" placeholder="Version (e.g. 1.0.3)" />
+            <input id="updateGofile" placeholder="Gofile Direct Download URL" />
+            <textarea id="updateNote" placeholder="Note (optional)" 
+                style="width:100%;height:80px;background:black;border:1px solid #700000;color:white;border-radius:6px;margin-top:10px;"></textarea>
+
+            <button class="glom-btn" onclick="pushUpdate()">Push Update</button>
+
+            <h2>Latest Update</h2>
+            <table id="loaderTable"></table>
+        </div>
+
+    </div> <!-- content -->
+</div> <!-- app -->
+
+<!-- ========== POPUPS / MODALS (Part 2 ends before full JS logic) ========== -->
+
+<style>
+    .modal-bg {
+        position: fixed;
+        top:0; left:0;
+        width:100%; height:100%;
+        background: rgba(0,0,0,0.75);
+        display:none;
+        justify-content:center;
+        align-items:center;
+        z-index:9;
     }
-    function setAuth(data) {
-      localStorage.setItem("token", data.token);
-      localStorage.setItem("user", JSON.stringify(data.user));
+    .modal {
+        background:#1a0000;
+        border:1px solid #700000;
+        padding:25px;
+        width:400px;
+        border-radius:8px;
+        box-shadow:0 0 25px #700000;
     }
-    function clearAuth() {
-      localStorage.removeItem("token");
-      localStorage.removeItem("user");
+    .modal input, .modal select, .modal textarea {
+        width:100%;
+        margin-bottom:10px;
+        padding:10px;
+        border:1px solid #700000;
+        background:black;
+        color:white;
     }
-    function getUser() {
-      const raw = localStorage.getItem("user");
-      if (!raw) return null;
-      try { return JSON.parse(raw); } catch { return null; }
+    .modal-btn {
+        display:flex;
+        justify-content:flex-end;
+        gap:10px;
     }
+</style>
 
-    async function api(path, method = "GET", body = null) {
-      const headers = { "Content-Type": "application/json" };
-      const token = getToken();
-      if (token) headers["Authorization"] = "Bearer " + token;
-      const res = await fetch(apiBase + path, {
-        method,
-        headers,
-        body: body ? JSON.stringify(body) : null
-      });
-      if (res.status === 401) {
-        clearAuth();
-      }
-      return res;
-    }
+<!-- Example modal (will be dynamically reused) -->
+<div class="modal-bg" id="popup">
+    <div class="modal" id="popupContent">
+        <!-- dynamic content goes here -->
+    </div>
+</div>
+<!-- ========================================= -->
+<!-- ============ MODAL TEMPLATES ============ -->
+<!-- ========================================= -->
 
-    function renderApp() {
-      const root = document.getElementById("app");
-      const user = getUser();
-      if (!getToken() || !user) {
-        // LOGIN PAGE
-        root.innerHTML = `
-          <div class="login-wrapper">
-            <div class="glom-logo">GLOM</div>
-            <div class="glom-sub">Authorization System</div>
-            <div class="login-title">Sign in</div>
-            <div class="login-sub">Enter your panel credentials to continue.</div>
-            <div class="top-warning">
-              For your security, it is highly recommended to enable 2FA and link your Discord account.
-              If unauthorized access occurs, we are not responsible.
-            </div>
-            <input id="login-username" placeholder="Username" />
-            <input id="login-password" placeholder="Password" type="password" />
-            <input id="login-code" placeholder="2FA Code (if enabled)" />
-            <button class="btn" onclick="doLogin()">Login</button>
-            <div id="login-status" class="muted" style="margin-top:8px;"></div>
-          </div>
-        `;
-      } else {
-        // DASHBOARD LAYOUT
-        root.innerHTML = `
-          <div class="layout">
-            <div class="sidebar">
-              <div class="glom-logo">GLOM</div>
-              <div class="glom-sub">Authorization</div>
-              <div class="danger-badge">LIVE PRODUCTION</div>
+<!-- PRODUCT EDIT POPUP -->
+<template id="modal-edit-product">
+    <h2 class="glow-red">Edit Product</h2>
 
-              <div style="margin-top:18px;">
-                <div class="nav-link active" data-section="dashboard" onclick="switchSection('dashboard', this)">Dashboard</div>
-                <div class="nav-link" data-section="security" onclick="switchSection('security', this)">Security</div>
-                <div class="nav-link" data-section="products" onclick="switchSection('products', this)">Products</div>
-              </div>
+    <input id="editProdName" placeholder="Product Name" />
+    <select id="editProdLoginMode">
+        <option value="USER_PASS">Username + Password</option>
+        <option value="KEY">Key System</option>
+        <option value="BOTH">Both</option>
+    </select>
 
-              <div style="margin-top:24px;font-size:11px;color:#888;">
-                <div>Logged in as:</div>
-                <div style="margin-top:2px;color:#f5f5f5;">${user.username}</div>
-                <div class="pill red" style="margin-top:6px;">${user.roleCode}</div>
-              </div>
+    <input id="editProdApi" placeholder="API Token" />
+    <textarea id="editProdNote" placeholder="Loader Note (optional)" 
+        style="width:100%;height:60px;"></textarea>
 
-              <div style="margin-top:18px;">
-                <button class="btn secondary" onclick="doLogout()">Logout</button>
-              </div>
-            </div>
-            <div class="content">
-              <div id="section-dashboard" class="section active">
-                <div class="card">
-                  <div class="card-header">
-                    <div>
-                      <div class="header-line">Dashboard</div>
-                      <div class="header-sub">Overview of your GLOM Authorization environment.</div>
-                    </div>
-                    <div class="tag">Real-time</div>
-                  </div>
-                  <div class="grid-2">
-                    <div>
-                      <div class="muted">Account</div>
-                      <div style="font-size:14px;margin-top:4px;">${user.username}</div>
-                      <div class="pill red" style="margin-top:4px;">Role: ${user.roleCode}</div>
-                    </div>
-                    <div>
-                      <div class="muted">Security Status</div>
-                      <div id="dash-security-status" style="margin-top:4px;font-size:13px;">Loading...</div>
-                    </div>
-                  </div>
-                </div>
-              </div>
+    <div class="modal-btn">
+        <button class="glom-btn" onclick="saveProductChanges()">Save</button>
+        <button class="glom-btn" onclick="closePopup()">Close</button>
+    </div>
+</template>
 
-              <div id="section-security" class="section">
-                <div class="card">
-                  <div class="card-header">
-                    <div>
-                      <div class="header-line">Security</div>
-                      <div class="header-sub">Two-factor authentication and Discord linking.</div>
-                    </div>
-                    <div class="tag">Critical</div>
-                  </div>
+<!-- ASSIGN SOURCE POPUP -->
+<template id="modal-assign-source">
+    <h2 class="glow-red">Assign Product to Source</h2>
 
-                  <div class="grid-2">
-                    <div>
-                      <div class="muted">Two-Factor Authentication (2FA)</div>
-                      <div id="sec-2fa-status" style="margin-top:4px;"></div>
-                      <div style="margin-top:8px;">
-                        <button class="btn" id="btn-2fa-enable" onclick="handle2FAEnable()">Enable 2FA</button>
-                        <button class="btn secondary" id="btn-2fa-disable" onclick="handle2FADisable()">Disable 2FA</button>
-                      </div>
-                      <div style="margin-top:8px;font-size:12px;color:#ccc;">
-                        2FA is optional, but highly recommended. If you do not enable it, we are not responsible for any unauthorized access.
-                      </div>
-                      <div class="qr-preview" id="sec-2fa-qr" style="display:none;">
-                        <img id="sec-2fa-qr-img" src="" alt="2FA QR" />
-                      </div>
-                    </div>
+    <input id="assignSourceName" placeholder="Source Username" />
 
-                    <div>
-                      <div class="muted">Discord Account Linking</div>
-                      <div id="sec-discord-status" style="margin-top:4px;"></div>
-                      <div style="margin-top:8px;">
-                        <button class="btn" id="btn-discord-connect" onclick="handleDiscordConnect()">Connect Discord</button>
-                      </div>
-                      <div style="margin-top:8px;font-size:12px;color:#ccc;">
-                        Discord linking is optional, but highly recommended. If your account gets stolen and Discord is not linked, we are not responsible.
-                      </div>
-                    </div>
-                  </div>
-                </div>
+    <div class="modal-btn">
+        <button class="glom-btn" onclick="assignSource()">Assign</button>
+        <button class="glom-btn" onclick="closePopup()">Close</button>
+    </div>
+</template>
 
-                <div class="card">
-                  <div class="card-header">
-                    <div class="card-title">Active Sessions</div>
-                    <div class="tag">Sessions</div>
-                  </div>
-                  <div id="sec-sessions-list" class="muted">Loading...</div>
-                  <div style="margin-top:10px;">
-                    <button class="btn danger" onclick="killAllSessions()">Log out all devices</button>
-                  </div>
-                </div>
-              </div>
+<!-- ASSIGN PANEL POPUP -->
+<template id="modal-assign-panel">
+    <h2 class="glow-red">Assign Product to Panel</h2>
 
-              <div id="section-products" class="section">
-                <div class="card">
-                  <div class="card-header">
-                    <div>
-                      <div class="header-line">Products</div>
-                      <div class="header-sub">Global products (MASTER / OWNER can manage).</div>
-                    </div>
-                    <div class="tag">Shared</div>
-                  </div>
-                  <div id="prod-message" class="muted" style="margin-bottom:8px;"></div>
-                  <div id="prod-form">
-                    <input id="prod-name" placeholder="Product name" />
-                    <input id="prod-desc" placeholder="Description (optional)" />
-                    <button class="btn" onclick="createProduct()">Create Product</button>
-                  </div>
-                  <div style="margin-top:12px;">
-                    <div class="muted">All Products</div>
-                    <div id="prod-list" style="margin-top:6px;font-size:13px;">Loading...</div>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        `;
+    <input id="assignPanelName" placeholder="Panel Username" />
 
-        // بعد الرسم → تحميل بيانات الأمن والمنتجات
-        loadSecuritySummary();
-        loadSecurityDetails();
-        loadProducts();
-      }
-    }
+    <div class="modal-btn">
+        <button class="glom-btn" onclick="assignPanel()">Assign</button>
+        <button class="glom-btn" onclick="closePopup()">Close</button>
+    </div>
+</template>
 
-    // ========== LOGIN ==========
-    async function doLogin() {
-      const u = document.getElementById("login-username").value.trim();
-      const p = document.getElementById("login-password").value.trim();
-      const c = document.getElementById("login-code").value.trim();
-      const status = document.getElementById("login-status");
-      status.textContent = "Checking credentials...";
-      try {
-        const res = await api("/auth/login", "POST", {
-          username: u,
-          password: p,
-          code: c || undefined
-        });
-        const data = await res.json();
-        if (!data.success) {
-          status.textContent = data.message || "Login failed";
-          status.className = "status-bad";
-        } else {
-          setAuth(data);
-          renderApp();
-        }
-      } catch (err) {
-        status.textContent = "Error connecting to server";
-        status.className = "status-bad";
-      }
-    }
+<!-- DELETE PRODUCT CONFIRM -->
+<template id="modal-delete-product">
+    <h2 class="glow-red">Delete Product</h2>
+    <p>Are you sure you want to delete this product?</p>
 
-    function doLogout() {
-      clearAuth();
-      location.href = "/auth/login";
-    }
+    <div class="modal-btn">
+        <button class="glom-btn" onclick="confirmDeleteProduct()">Delete</button>
+        <button class="glom-btn" onclick="closePopup()">Cancel</button>
+    </div>
+</template>
 
-    // ========== SECTIONS ==========
-    function switchSection(name, el) {
-      document.querySelectorAll(".section").forEach(s => s.classList.remove("active"));
-      const sec = document.getElementById("section-" + name);
-      if (sec) sec.classList.add("active");
+<!-- DELETE KEY CONFIRM -->
+<template id="modal-delete-key">
+    <h2 class="glow-red">Delete Key</h2>
+    <p>Are you sure you want to delete this key?</p>
 
-      document.querySelectorAll(".nav-link").forEach(a => a.classList.remove("active"));
-      if (el) el.classList.add("active");
-    }
+    <div class="modal-btn">
+        <button class="glom-btn" onclick="confirmDeleteKey()">Delete</button>
+        <button class="glom-btn" onclick="closePopup()">Cancel</button>
+    </div>
+</template>
 
-    // ========== SECURITY ==========
-    async function loadSecuritySummary() {
-      const box = document.getElementById("dash-security-status");
-      if (!box) return;
-      try {
-        const res = await api("/security/profile");
-        const data = await res.json();
-        if (!data.success) {
-          box.innerHTML = '<span class="status-bad">Unknown (failed to load)</span>';
-          return;
-        }
-        const t = data.twoFAEnabled
-          ? '<span class="status-ok">2FA Enabled</span>'
-          : '<span class="status-bad">2FA Disabled</span>';
-        const d = data.discordLinked
-          ? '<span class="status-ok">Discord linked</span>'
-          : '<span class="status-bad">Discord not linked</span>';
-        box.innerHTML = t + " · " + d;
-      } catch {
-        box.innerHTML = '<span class="status-bad">Error loading security status</span>';
-      }
-    }
+<!-- MASTER SECURITY (Disable 2FA / Discord) -->
+<template id="modal-master-security">
+    <h2 class="glow-red">Master Security Control</h2>
 
-    async function loadSecurityDetails() {
-      const box2 = document.getElementById("sec-2fa-status");
-      const boxD = document.getElementById("sec-discord-status");
-      const qrWrap = document.getElementById("sec-2fa-qr");
-      if (!box2 || !boxD) return;
-      try {
-        const res = await api("/security/profile");
-        const data = await res.json();
-        if (!data.success) {
-          box2.innerHTML = '<span class="status-bad">Failed to load 2FA state</span>';
-          boxD.innerHTML = '<span class="status-bad">Failed to load Discord state</span>';
-          return;
-        }
-        box2.innerHTML = data.twoFAEnabled
-          ? '<span class="status-ok">2FA is enabled</span>'
-          : '<span class="status-bad">2FA is disabled</span>';
+    <input id="masterTargetUser" placeholder="Username" />
 
-        boxD.innerHTML = data.discordLinked
-          ? '<span class="status-ok">Discord is linked</span>'
-          : '<span class="status-bad">Discord is not linked</span>';
+    <div class="modal-btn" style="display:flex;flex-direction:column;gap:10px;">
+        <button class="glom-btn" onclick="masterDisable2FA()">Disable 2FA</button>
+        <button class="glom-btn" onclick="masterUnlinkDiscord()">Unlink Discord</button>
+        <button class="glom-btn" onclick="closePopup()">Close</button>
+    </div>
+</template>
 
-        qrWrap.style.display = "none";
+<!-- GENERIC CONFIRM POPUP -->
+<template id="modal-confirm">
+    <h2 class="glow-red">Confirm</h2>
+    <p id="confirmMessage">Are you sure?</p>
 
-        // SESSIONS
-        loadSessions();
-      } catch {
-        box2.innerHTML = '<span class="status-bad">Error loading 2FA</span>';
-        boxD.innerHTML = '<span class="status-bad">Error loading Discord</span>';
-      }
+    <div class="modal-btn">
+        <button class="glom-btn" id="confirmYes">Yes</button>
+        <button class="glom-btn" onclick="closePopup()">Cancel</button>
+    </div>
+</template>
+
+<!-- POPUP JS CONTROL -->
+<script>
+    let currentPopupAction = null;
+
+    function showPopup(templateId) {
+        const template = document.getElementById(templateId);
+        const popup = document.getElementById("popup");
+        const content = document.getElementById("popupContent");
+
+        content.innerHTML = template.innerHTML;
+        popup.style.display = "flex";
     }
 
-    async function handle2FAEnable() {
-      try {
-        const res = await api("/security/2fa/setup", "POST", {});
-        const data = await res.json();
-        if (!data.success) {
-          alert(data.message || "Failed to start 2FA");
-          return;
-        }
-        const qrWrap = document.getElementById("sec-2fa-qr");
-        const img = document.getElementById("sec-2fa-qr-img");
-        img.src = data.qr;
-        qrWrap.style.display = "block";
-
-        const code = prompt("Enter 2FA code from your authenticator to complete setup:");
-        if (!code) return;
-        const res2 = await api("/security/2fa/verify", "POST", { code });
-        const data2 = await res2.json();
-        alert(data2.message || "2FA verification done");
-        loadSecuritySummary();
-        loadSecurityDetails();
-      } catch {
-        alert("Error during 2FA setup");
-      }
+    function closePopup() {
+        document.getElementById("popup").style.display = "none";
+        currentPopupAction = null;
     }
+</script>
+<script>
+// ================================
+// GLOBAL CONFIG
+// ================================
+const API = "/glom/api";
+let USER = null;
 
-    async function handle2FADisable() {
-      if (!confirm("Disable 2FA for this account?")) return;
-      try {
-        const res = await api("/security/2fa/disable", "POST", {});
-        const data = await res.json();
-        alert(data.message || "2FA disabled");
-        loadSecuritySummary();
-        loadSecurityDetails();
-      } catch {
-        alert("Error disabling 2FA");
-      }
+// ================================
+// LOAD USER (from localStorage)
+// ================================
+function loadUser() {
+    try {
+        USER = JSON.parse(localStorage.getItem("GLOM_USER"));
+    } catch {
+        USER = null;
     }
+}
 
-    async function handleDiscordConnect() {
-      // سيتم تحويل المتصفح إلى /glom/api/security/discord/login
-      window.location.href = apiBase + "/security/discord/login";
-    }
+// ================================
+// SAVE USER
+// ================================
+function saveUser(u) {
+    USER = u;
+    localStorage.setItem("GLOM_USER", JSON.stringify(u));
+}
 
-    async function loadSessions() {
-      const box = document.getElementById("sec-sessions-list");
-      if (!box) return;
-      try {
-        const res = await api("/security/sessions");
-        const data = await res.json();
-        if (!data.success) {
-          box.innerHTML = '<span class="status-bad">Failed to load sessions</span>';
-          return;
-        }
-        if (!data.sessions || data.sessions.length === 0) {
-          box.innerHTML = "No active sessions.";
-          return;
-        }
-        box.innerHTML = data.sessions
-          .map(
-            (s) => `
-            <div class="session-item">
-              <div>${s.ip || "Unknown IP"}</div>
-              <div class="session-meta">${s.userAgent || "Unknown device"}</div>
-              <div class="session-meta">Created: ${new Date(s.createdAt).toLocaleString()}</div>
-            </div>
-          `
-          )
-          .join("");
-      } catch {
-        box.innerHTML = '<span class="status-bad">Error loading sessions</span>';
-      }
-    }
+// ================================
+// LOGOUT
+// ================================
+function logout() {
+    localStorage.removeItem("GLOM_USER");
+    window.location.href = "/auth/login";
+}
 
-    async function killAllSessions() {
-      if (!confirm("Log out all devices (including this one)?")) return;
-      try {
-        await api("/security/sessions", "DELETE");
-        alert("All sessions removed");
-        clearAuth();
-        location.href = "/auth/login";
-      } catch {
-        alert("Error removing sessions");
-      }
-    }
+// ================================
+// LOGIN
+// ================================
+async function login() {
+    const user = document.getElementById("loginUser").value;
+    const pass = document.getElementById("loginPass").value;
 
-    // ========== PRODUCTS ==========
-    async function loadProducts() {
-      const list = document.getElementById("prod-list");
-      const msg = document.getElementById("prod-message");
-      if (!list) return;
-      list.textContent = "Loading...";
-      msg.textContent = "";
-      try {
-        const res = await api("/products/all");
-        const data = await res.json();
-        if (!data.success) {
-          list.innerHTML = '<span class="status-bad">Failed to load products</span>';
-          return;
-        }
-        if (!data.products || data.products.length === 0) {
-          list.textContent = "No products yet.";
-          return;
-        }
-        list.innerHTML = data.products
-          .map(
-            (p) =>
-              `<div>- <strong>${p.name}</strong> <span class="muted">${p.description || ""}</span></div>`
-          )
-          .join("");
-      } catch {
-        list.innerHTML = '<span class="status-bad">Error loading products</span>';
-      }
-    }
+    const res = await fetch(`${API}/auth/login`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ username: user, password: pass })
+    });
 
-    async function createProduct() {
-      const name = document.getElementById("prod-name").value.trim();
-      const desc = document.getElementById("prod-desc").value.trim();
-      const msg = document.getElementById("prod-message");
-      if (!name) {
-        msg.textContent = "Name is required.";
-        msg.className = "status-bad";
+    const data = await res.json();
+
+    if (!data.success) {
+        alert(data.message || "Login failed");
         return;
-      }
-      try {
-        const res = await api("/products/create", "POST", { name, description: desc });
-        const data = await res.json();
-        if (!data.success) {
-          msg.textContent = data.message || "Failed to create product.";
-          msg.className = "status-bad";
-        } else {
-          msg.textContent = "Product created.";
-          msg.className = "status-ok";
-          document.getElementById("prod-name").value = "";
-          document.getElementById("prod-desc").value = "";
-          loadProducts();
-        }
-      } catch {
-        msg.textContent = "Error creating product.";
-        msg.className = "status-bad";
-      }
     }
 
-    // ========== INIT ==========
-    (async function init() {
-      // إذا عنده توكن → نعمل محاولة تحميل profile عشان نتاكد انه لسه صالح
-      if (getToken()) {
-        try {
-          const res = await api("/security/profile");
-          const data = await res.json();
-          if (!data.success) {
-            clearAuth();
-          }
-        } catch {
-          clearAuth();
-        }
-      }
-      renderApp();
-    })();
-  </script>
-</body>
-</html>
+    saveUser(data.user);
+    window.location.href = "/";
+}
+
+// ================================
+// APPLY ROLE PERMISSIONS
+// ================================
+function applyRoleVisibility() {
+    if (!USER) return;
+
+    const lvl = USER.role.level;
+
+    hideAllRoleBlocks();
+
+    if (lvl >= 999) document.querySelectorAll(".role-master").forEach(e => e.style.display = "block");
+    if (lvl >= 700) document.querySelectorAll(".role-owner").forEach(e => e.style.display = "block");
+    if (lvl >= 400) document.querySelectorAll(".role-source").forEach(e => e.style.display = "block");
+    
+    document.querySelectorAll(".role-panel").forEach(e => e.style.display = "block");
+}
+
+function hideAllRoleBlocks() {
+    document.querySelectorAll("[class*='role-']").forEach(e => e.style.display = "none");
+}
+
+// ================================
+// LOAD PRODUCTS
+// ================================
+async function loadProducts() {
+    const res = await fetch(`${API}/products/list`, {
+        headers: { "Authorization": `Bearer ${USER.token}` }
+    });
+    const data = await res.json();
+
+    if (!data.success) {
+        alert("Failed to load products");
+        return;
+    }
+
+    const box = document.getElementById("productsBox");
+    box.innerHTML = "";
+
+    data.products.forEach(p => {
+        box.innerHTML += `
+            <div class="product-card">
+                <h3>${p.name}</h3>
+                <p>Mode: ${p.loginMode}</p>
+                <p>API: ${p.apiToken}</p>
+
+                <button class="glom-btn role-owner role-master" onclick="openEditProduct('${p._id}')">Edit</button>
+                <button class="glom-btn role-owner role-master" onclick="openDeleteProduct('${p._id}')">Delete</button>
+
+                <button class="glom-btn role-owner" onclick="openAssignSource('${p._id}')">Assign Source</button>
+                <button class="glom-btn role-owner" onclick="openAssignPanel('${p._id}')">Assign Panel</button>
+
+                <button class="glom-btn" onclick="openKeys('${p._id}')">Keys</button>
+                <button class="glom-btn" onclick="openLoaderUpdate('${p._id}')">Loader Update</button>
+            </div>
+        `;
+    });
+}
+
+// ================================
+// CREATE PRODUCT
+// ================================
+async function createProduct() {
+    const name = document.getElementById("prodName").value;
+    const mode = document.getElementById("prodMode").value;
+
+    const res = await fetch(`${API}/products/create`, {
+        method: "POST",
+        headers: {
+            "Authorization": `Bearer ${USER.token}`,
+            "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ name, loginMode: mode })
+    });
+
+    const data = await res.json();
+
+    if (!data.success) return alert(data.message);
+    closePopup();
+    loadProducts();
+}
+
+// ================================
+// EDIT PRODUCT POPUP
+// ================================
+let CURRENT_PRODUCT = null;
+
+async function openEditProduct(id) {
+    CURRENT_PRODUCT = id;
+    showPopup("modal-edit-product");
+
+    const res = await fetch(`${API}/products/get/${id}`, {
+        headers: { "Authorization": `Bearer ${USER.token}` }
+    });
+    const data = await res.json();
+
+    if (!data.success) return alert("Failed to load");
+    document.getElementById("editProdName").value = data.product.name;
+    document.getElementById("editProdLoginMode").value = data.product.loginMode;
+    document.getElementById("editProdApi").value = data.product.apiToken || "";
+}
+
+// ================================
+// SAVE EDITED PRODUCT
+// ================================
+async function saveProductChanges() {
+    const name = document.getElementById("editProdName").value;
+    const mode = document.getElementById("editProdLoginMode").value;
+    const api = document.getElementById("editProdApi").value;
+
+    const res = await fetch(`${API}/products/update/${CURRENT_PRODUCT}`, {
+        method: "POST",
+        headers: {
+            "Authorization": `Bearer ${USER.token}`,
+            "Content-Type": "application/json"
+        },
+        body: JSON.stringify({ name, loginMode: mode, apiToken: api })
+    });
+
+    const data = await res.json();
+
+    if (!data.success) return alert(data.message);
+    closePopup();
+    loadProducts();
+}
+
+// ================================
+// DELETE PRODUCT
+// ================================
+function openDeleteProduct(id) {
+    CURRENT_PRODUCT = id;
+    showPopup("modal-delete-product");
+}
+
+async function confirmDeleteProduct() {
+    const res = await fetch(`${API}/products/delete/${CURRENT_PRODUCT}`, {
+        method: "POST",
+        headers: { "Authorization": `Bearer ${USER.token}` }
+    });
+
+    const data = await res.json();
+    if (!data.success) return alert(data.message);
+    closePopup();
+    loadProducts();
+}
+
+// ================================
+// ASSIGN SOURCE
+// ================================
+function openAssignSource(id) {
+    CURRENT_PRODUCT = id;
+    showPopup("modal-assign-source");
+}
+
+async function assignSource() {
+    const username = document.getElementById("assignSourceName").value;
+
+    const res = await fetch(`${API}/products/assign-source/${CURRENT_PRODUCT}`, {
+        method: "POST",
+        headers: {
+            "Authorization": `Bearer ${USER.token}`,
+            "Content-Type": "application/json"
+        },
+        body: JSON.stringify({ username })
+    });
+
+    const data = await res.json();
+
+    if (!data.success) return alert(data.message);
+
+    closePopup();
+    loadProducts();
+}
+
+// ================================
+// ASSIGN PANEL
+// ================================
+function openAssignPanel(id) {
+    CURRENT_PRODUCT = id;
+    showPopup("modal-assign-panel");
+}
+
+async function assignPanel() {
+    const username = document.getElementById("assignPanelName").value;
+
+    const res = await fetch(`${API}/products/assign-panel/${CURRENT_PRODUCT}`, {
+        method: "POST",
+        headers: {
+            "Authorization": `Bearer ${USER.token}`,
+            "Content-Type": "application/json"
+        },
+        body: JSON.stringify({ username })
+    });
+
+    const data = await res.json();
+
+    if (!data.success) return alert(data.message);
+
+    closePopup();
+    loadProducts();
+}
+
+// ================================
+// KEYS PAGE
+// ================================
+async function openKeys(id) {
+    CURRENT_PRODUCT = id;
+
+    document.getElementById("mainPages").style.display = "none";
+    document.getElementById("keysPage").style.display = "block";
+    loadKeys(id);
+}
+
+async function loadKeys(id) {
+    const res = await fetch(`${API}/keys/list/${id}`, {
+        headers: { "Authorization": `Bearer ${USER.token}` }
+    });
+
+    const data = await res.json();
+    if (!data.success) return alert(data.message);
+
+    const box = document.getElementById("keysBox");
+    box.innerHTML = "";
+
+    data.keys.forEach(k => {
+        box.innerHTML += `
+        <div class="key-card">
+            <h3>${k.key}</h3>
+            <p>HWID: ${k.hwid || "None"}</p>
+            <p>Duration: ${k.duration}</p>
+            <p>Used: ${k.used}</p>
+
+            <button class="glom-btn" onclick="openDeleteKey('${k._id}')">Delete</button>
+        </div>`;
+    });
+}
+
+// ================================
+// DELETE KEY
+// ================================
+function openDeleteKey(id) {
+    CURRENT_PRODUCT = id;
+    showPopup("modal-delete-key");
+}
+
+async function confirmDeleteKey() {
+    const res = await fetch(`${API}/keys/delete/${CURRENT_PRODUCT}`, {
+        method: "POST",
+        headers: { "Authorization": `Bearer ${USER.token}` }
+    });
+
+    const data = await res.json();
+    if (!data.success) return alert(data.message);
+
+    closePopup();
+    loadKeys(CURRENT_PRODUCT);
+}
+
+// ================================
+// MASTER SECURITY CONTROL
+// ================================
+function openMasterSecurity() {
+    showPopup("modal-master-security");
+}
+
+async function masterDisable2FA() {
+    const user = document.getElementById("masterTargetUser").value;
+
+    const res = await fetch(`${API}/security/disable-2fa`, {
+        method: "POST",
+        headers: {
+            "Authorization": `Bearer ${USER.token}`,
+            "Content-Type": "application/json"
+        },
+        body: JSON.stringify({ username: user })
+    });
+
+    const data = await res.json();
+    alert(data.message);
+}
+
+async function masterUnlinkDiscord() {
+    const user = document.getElementById("masterTargetUser").value;
+
+    const res = await fetch(`${API}/security/unlink-discord`, {
+        method: "POST",
+        headers: {
+            "Authorization": `Bearer ${USER.token}`,
+            "Content-Type": "application/json"
+        },
+        body: JSON.stringify({ username: user })
+    });
+
+    const data = await res.json();
+    alert(data.message);
+}
+
+// ================================
+// INITIALIZE PAGE
+// ================================
+window.onload = () => {
+    loadUser();
+
+    if (!USER && !window.location.href.includes("login"))
+        return window.location.href = "/auth/login";
+
+    if (USER) {
+        applyRoleVisibility();
+        loadProducts();
+    }
+};
+</script>
