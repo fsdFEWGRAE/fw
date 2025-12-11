@@ -1,759 +1,1175 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>GLOM AUTHORIZATION</title>
+  <meta charset="UTF-8" />
+  <title>GLOM Authorization</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <style>
+    /* ============== GLOBAL ============== */
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+    }
+    body {
+      background: radial-gradient(circle at top, #260000 0%, #050005 60%, #000000 100%);
+      color: #f8f0f0;
+    }
+    a { color: #ff5555; text-decoration: none; }
 
-    <!-- ===== GLOM THEME ===== -->
-    <style>
-        @import url("https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;700;900&display=swap");
+    .hidden { display: none !important; }
 
-        body {
-            margin: 0;
-            background: radial-gradient(circle at top, #2b0000, #000000 70%);
-            font-family: "Montserrat", sans-serif;
-            color: white;
-            overflow: hidden;
-        }
+    /* ============== LOGIN VIEW ============== */
+    #login-view {
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
 
-        /* ===== Neon Red Glow ===== */
-        .glow-red {
-            text-shadow: 0 0 15px #ff0000, 0 0 30px #b30000;
-        }
+    .login-card {
+      background: radial-gradient(circle at top, #290000 0%, #080005 70%);
+      border: 1px solid #590000;
+      border-radius: 16px;
+      padding: 32px 40px;
+      box-shadow: 0 0 30px rgba(255, 0, 0, 0.25);
+      width: 420px;
+      max-width: 95vw;
+    }
 
-        /* ===== Layout ===== */
-        #app {
-            display: flex;
-            height: 100vh;
-            width: 100vw;
-        }
+    .login-title {
+      font-size: 26px;
+      font-weight: 900;
+      letter-spacing: 2px;
+      color: #ff3333;
+      margin-bottom: 4px;
+    }
 
-        /* ===== Sidebar ===== */
-        .sidebar {
-            width: 230px;
-            background: rgba(0, 0, 0, 0.8);
-            border-right: 2px solid #700000;
-            padding: 25px 15px;
-            box-sizing: border-box;
-        }
+    .login-sub {
+      font-size: 12px;
+      text-transform: uppercase;
+      letter-spacing: 4px;
+      color: #ffb3b3;
+      margin-bottom: 24px;
+    }
 
-        .logo {
-            font-size: 26px;
-            font-weight: 900;
-            letter-spacing: 3px;
-            margin-bottom: 35px;
-        }
+    .field {
+      margin-bottom: 16px;
+    }
 
-        .logo span {
-            color: #ff1a1a;
-        }
+    .field label {
+      display: block;
+      font-size: 13px;
+      margin-bottom: 4px;
+      color: #ffdddd;
+    }
 
-        .nav-btn {
-            width: 100%;
-            padding: 12px 10px;
-            margin-bottom: 10px;
-            background: #1a0000;
-            border: 1px solid #700000;
-            color: #ff4d4d;
-            cursor: pointer;
-            text-align: left;
-            border-radius: 6px;
-            transition: 0.2s;
-        }
+    .field input, .field select {
+      width: 100%;
+      padding: 10px 12px;
+      border-radius: 8px;
+      border: 1px solid #4a0000;
+      background: #080005;
+      color: #ffefef;
+      outline: none;
+    }
+    .field input:focus, .field select:focus {
+      border-color: #ff3333;
+      box-shadow: 0 0 0 1px #ff3333;
+    }
 
-        .nav-btn:hover, .nav-btn.active {
-            background: #700000;
-            color: white;
-        }
+    .btn {
+      display: inline-block;
+      padding: 10px 18px;
+      border-radius: 999px;
+      border: 1px solid #ff3333;
+      background: linear-gradient(135deg, #b30000, #ff3333);
+      color: #fff;
+      font-size: 13px;
+      font-weight: 700;
+      letter-spacing: 1px;
+      text-transform: uppercase;
+      cursor: pointer;
+      transition: transform 0.1s ease, box-shadow 0.1s ease, background 0.1s ease;
+    }
+    .btn:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 0 12px rgba(255, 0, 0, 0.45);
+    }
+    .btn:active {
+      transform: translateY(1px) scale(0.98);
+      box-shadow: 0 0 4px rgba(255, 0, 0, 0.3);
+    }
+    .btn-secondary {
+      background: transparent;
+      border-color: #ff6666;
+    }
 
-        /* ===== Main Content ===== */
-        .content {
-            flex: 1;
-            padding: 25px;
-            overflow-y: auto;
-        }
+    .login-note {
+      margin-top: 14px;
+      font-size: 11px;
+      color: #ffbbbb;
+      line-height: 1.4;
+    }
 
-        .page {
-            display: none;
-        }
+    .login-error {
+      margin-top: 8px;
+      font-size: 12px;
+      color: #ff7070;
+    }
 
-        .page.active {
-            display: block;
-        }
+    /* ============== PANEL LAYOUT ============== */
 
-        /* ===== Inputs ===== */
-        input, select {
-            background: black;
-            border: 1px solid #700000;
-            padding: 10px;
-            color: white;
-            border-radius: 6px;
-            width: 100%;
-            margin-bottom: 12px;
-        }
+    #panel-view {
+      height: 100vh;
+      display: flex;
+    }
 
-        button.glom-btn {
-            padding: 10px 20px;
-            border: none;
-            background: #ff0000;
-            color: white;
-            border-radius: 6px;
-            cursor: pointer;
-            transition: 0.2s;
-            font-weight: bold;
-            box-shadow: 0 0 10px #b30000;
-        }
+    .sidebar {
+      width: 190px;
+      background: radial-gradient(circle at top, #330000 0%, #050005 55%, #000000 100%);
+      border-right: 2px solid #600000;
+      padding: 18px 10px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
 
-        button.glom-btn:hover {
-            background: #b30000;
-        }
+    .logo-block {
+      margin-bottom: 18px;
+      padding-left: 4px;
+    }
 
-        /* ===== Tables ===== */
-        table {
-            width: 100%;
-            border-collapse: collapse;
-            background: #0d0000;
-        }
+    .logo-title {
+      font-size: 20px;
+      font-weight: 900;
+      letter-spacing: 6px;
+      color: #ffffff;
+    }
 
-        th, td {
-            padding: 12px;
-            border: 1px solid #330000;
-        }
+    .logo-sub {
+      font-size: 9px;
+      letter-spacing: 3px;
+      text-transform: uppercase;
+      color: #ff8080;
+    }
 
-        th {
-            background: #330000;
-        }
-    </style>
+    .nav-btn {
+      width: 100%;
+      text-align: left;
+      padding: 9px 12px;
+      border-radius: 6px;
+      border: 1px solid #420000;
+      background: #070004;
+      color: #ffcccc;
+      font-size: 12px;
+      cursor: pointer;
+      transition: background 0.1s ease, border 0.1s ease, transform 0.08s ease;
+    }
+
+    .nav-btn.active {
+      background: linear-gradient(135deg, #b00000, #ff3333);
+      border-color: #ff4444;
+      color: #fff;
+      box-shadow: 0 0 15px rgba(255, 0, 0, 0.55);
+    }
+
+    .nav-btn:hover {
+      transform: translateY(-1px);
+    }
+
+    .sidebar-footer {
+      margin-top: auto;
+      font-size: 11px;
+      color: #ffaaaa;
+      padding-left: 4px;
+    }
+
+    .sidebar-role {
+      margin-top: 2px;
+      font-size: 10px;
+      color: #ff8888;
+    }
+
+    .main {
+      flex: 1;
+      padding: 18px 26px;
+      overflow-y: auto;
+    }
+
+    .section {
+      display: none;
+    }
+    .section.active {
+      display: block;
+    }
+
+    .section-title {
+      font-size: 22px;
+      font-weight: 800;
+      margin-bottom: 10px;
+      color: #ffdddd;
+    }
+
+    .section-sub {
+      font-size: 12px;
+      margin-bottom: 18px;
+      color: #ff9c9c;
+    }
+
+    .card {
+      background: rgba(5, 0, 5, 0.8);
+      border-radius: 10px;
+      border: 1px solid #4f0000;
+      padding: 14px 16px;
+      margin-bottom: 16px;
+    }
+
+    .card-title {
+      font-size: 14px;
+      font-weight: 700;
+      margin-bottom: 8px;
+      color: #ffcccc;
+    }
+
+    .card-row {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      margin-bottom: 10px;
+    }
+
+    .card-row .field {
+      flex: 1;
+      min-width: 140px;
+      margin-bottom: 0;
+    }
+
+    .small-text {
+      font-size: 11px;
+      color: #ffaaaa;
+    }
+
+    .danger-text {
+      color: #ff6666;
+      font-size: 12px;
+      margin-top: 6px;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 8px;
+      font-size: 12px;
+    }
+    table thead {
+      background: #260000;
+    }
+    table th, table td {
+      padding: 6px 8px;
+      border-bottom: 1px solid #330000;
+    }
+    table tr:nth-child(even) {
+      background: #0b0005;
+    }
+
+    .pill {
+      display: inline-block;
+      padding: 2px 8px;
+      border-radius: 999px;
+      background: #330000;
+      border: 1px solid #ff3333;
+      font-size: 10px;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+    }
+
+    .tag-role {
+      font-size: 10px;
+      padding: 2px 6px;
+      border-radius: 999px;
+      border: 1px solid #ff5555;
+      background: #1a0000;
+      color: #ffcccc;
+    }
+
+    .btn-mini {
+      padding: 4px 8px;
+      font-size: 10px;
+      border-radius: 999px;
+      border: 1px solid #ff5555;
+      background: transparent;
+      color: #ffcccc;
+      cursor: pointer;
+    }
+    .btn-mini:hover {
+      background: #5a0000;
+    }
+
+    .status-bar {
+      font-size: 11px;
+      margin-top: 8px;
+      color: #ffb3b3;
+    }
+
+    @media (max-width: 800px) {
+      #panel-view {
+        flex-direction: column;
+      }
+      .sidebar {
+        width: 100%;
+        flex-direction: row;
+        overflow-x: auto;
+        border-right: none;
+        border-bottom: 2px solid #600000;
+      }
+      .sidebar-footer {
+        display: none;
+      }
+      .main {
+        padding: 14px 14px;
+      }
+    }
+  </style>
 </head>
 <body>
 
-<div id="app">
-    <!-- ===== SIDEBAR ===== -->
+  <!-- ================= LOGIN ================ -->
+  <div id="login-view">
+    <div class="login-card">
+      <div class="login-title">GLOM AUTHORIZATION</div>
+      <div class="login-sub">PANEL LOGIN</div>
+
+      <div class="field">
+        <label for="login-username">Username</label>
+        <input id="login-username" type="text" autocomplete="username" />
+      </div>
+
+      <div class="field">
+        <label for="login-password">Password</label>
+        <input id="login-password" type="password" autocomplete="current-password" />
+      </div>
+
+      <button class="btn" id="login-btn">Login</button>
+
+      <div class="login-note">
+        For your security, it is highly recommended to enable 2FA and link your Discord account.
+        If unauthorized access occurs, we are not responsible.
+      </div>
+
+      <div class="login-error" id="login-error"></div>
+    </div>
+  </div>
+
+  <!-- ================= PANEL ================ -->
+  <div id="panel-view" class="hidden">
     <div class="sidebar">
-        <div class="logo glow-red">G L O M<br><small>AUTHORIZATION</small></div>
+      <div class="logo-block">
+        <div class="logo-title">G L O M</div>
+        <div class="logo-sub">AUTHORIZATION</div>
+      </div>
 
-        <button class="nav-btn active" onclick="openPage('dashboard')">Dashboard</button>
-        <button class="nav-btn" onclick="openPage('security')">Security</button>
-        <button class="nav-btn" onclick="openPage('products')">Products</button>
-        <button class="nav-btn" onclick="openPage('keys')">Keys</button>
-        <button class="nav-btn" onclick="openPage('sources')">Sources</button>
-        <button class="nav-btn" onclick="openPage('loader')">Loader Updates</button>
+      <button class="nav-btn active" id="btn-dashboard" onclick="selectSection('dashboard')">Dashboard</button>
+      <button class="nav-btn" id="btn-security" onclick="selectSection('security')">Security</button>
+      <button class="nav-btn" id="btn-products" onclick="selectSection('products')">Products</button>
+      <button class="nav-btn" id="btn-keys" onclick="selectSection('keys')">Keys</button>
+      <button class="nav-btn" id="btn-sources" onclick="selectSection('sources')">Sources</button>
+      <button class="nav-btn" id="btn-loader" onclick="selectSection('loader')">Loader Updates</button>
 
-        <hr style="border-color:#300" />
+      <button class="nav-btn" id="btn-logout" onclick="logout()">Logout</button>
 
-        <button class="nav-btn" onclick="logout()">Logout</button>
+      <div class="sidebar-footer">
+        <div id="sidebar-username">Logged in as: -</div>
+        <div class="sidebar-role" id="sidebar-role">Role: -</div>
+      </div>
     </div>
 
-    <!-- ===== MAIN CONTENT ===== -->
-    <div class="content">
+    <div class="main">
+      <!-- DASHBOARD -->
+      <div id="section-dashboard" class="section active">
+        <div class="section-title">Dashboard</div>
+        <div class="section-sub">Welcome to GLOM Authorization Panel.</div>
 
-        <!-- DASHBOARD -->
-        <div class="page active" id="dashboard">
-            <h1 class="glow-red">Dashboard</h1>
-            <p>Welcome to GLOM Authorization Panel.</p>
+        <div class="card">
+          <div class="card-title">Session</div>
+          <div class="small-text">
+            You are connected to the live production backend on port <span class="pill">3000</span>.<br />
+            All requests are served under <span class="pill">/glom/api</span>.
+          </div>
+        </div>
+      </div>
+
+      <!-- SECURITY -->
+      <div id="section-security" class="section">
+        <div class="section-title">Security</div>
+        <div class="section-sub">
+          Control your 2FA and Discord linking. Master can also force-reset for resellers.
         </div>
 
-        <!-- SECURITY -->
-        <div class="page" id="security">
-            <h1 class="glow-red">Security</h1>
-            <button class="glom-btn" onclick="enable2FA()">Enable 2FA</button>
-            <button class="glom-btn" onclick="disable2FA()">Disable 2FA</button>
+        <div class="card">
+          <div class="card-title">My Security</div>
+          <div class="card-row">
+            <button class="btn-mini" onclick="toggle2FA(true)">Enable 2FA</button>
+            <button class="btn-mini" onclick="toggle2FA(false)">Disable 2FA</button>
+          </div>
+          <div class="card-row">
+            <div class="field">
+              <label>Discord ID</label>
+              <input id="discord-id" placeholder="1234567890" />
+            </div>
+            <div class="field">
+              <label>Discord Name</label>
+              <input id="discord-name" placeholder="Username#0000" />
+            </div>
+          </div>
+          <div class="card-row">
+            <button class="btn-mini" onclick="linkDiscord()">Link Discord</button>
+            <button class="btn-mini" onclick="unlinkDiscord()">Unlink Discord</button>
+          </div>
 
-            <br><br>
-
-            <button class="glom-btn" onclick="connectDiscord()">Connect Discord</button>
-            <button class="glom-btn" onclick="disconnectDiscord()">Disconnect Discord</button>
+          <div id="security-status" class="status-bar"></div>
         </div>
 
-        <!-- PRODUCTS -->
-        <div class="page" id="products">
-            <h1 class="glow-red">Products</h1>
-
-            <input id="newProductName" placeholder="Product Name" />
-            <select id="newProductType">
-                <option value="account">Username + Password</option>
-                <option value="key">Key System</option>
-            </select>
-
-            <button class="glom-btn" onclick="createProduct()">Create Product</button>
-
-            <h2>All Products</h2>
-            <table id="productsTable"></table>
+        <div class="card" id="card-master-security">
+          <div class="card-title">Master Security Control</div>
+          <div class="card-row">
+            <div class="field">
+              <label>Target Username</label>
+              <input id="master-target-username" placeholder="reseller / panel username" />
+            </div>
+          </div>
+          <div class="card-row">
+            <button class="btn-mini" onclick="masterDisable2FA()">Disable 2FA (forced)</button>
+            <button class="btn-mini" onclick="masterUnlinkDiscord()">Unlink Discord (forced)</button>
+          </div>
+          <div class="danger-text">
+            This is an admin push. No logs are created; use carefully.
+          </div>
         </div>
-        <!-- KEYS -->
-        <div class="page" id="keys">
-            <h1 class="glow-red">Keys</h1>
+      </div>
 
-            <select id="keyProductSelect"></select>
-            <input id="keyPanelUser" placeholder="Panel Username" />
-            <input id="keyDays" placeholder="Days (leave empty for lifetime)" />
-
-            <button class="glom-btn" onclick="createKey()">Create Key</button>
-
-            <h2>All Keys</h2>
-            <table id="keysTable"></table>
+      <!-- PRODUCTS -->
+      <div id="section-products" class="section">
+        <div class="section-title">Products</div>
+        <div class="section-sub">
+          Global products (MASTER / OWNER manage). Sources and Panels only see assigned products.
         </div>
 
-        <!-- SOURCES / RESELLERS -->
-        <div class="page" id="sources">
-            <h1 class="glow-red">Users / Resellers</h1>
+        <div class="card" id="card-product-create">
+          <div class="card-title">Create Product</div>
+          <div class="card-row">
+            <div class="field">
+              <label>Name</label>
+              <input id="prod-name" placeholder="Product name" />
+            </div>
+            <div class="field">
+              <label>Login Mode</label>
+              <select id="prod-login-mode">
+                <option value="USER_PASS">User / Password</option>
+                <option value="KEY">Key Only</option>
+                <option value="BOTH">User+Pass or Key</option>
+              </select>
+            </div>
+          </div>
+          <div class="card-row">
+            <div class="field">
+              <label>Custom API Token (optional)</label>
+              <input id="prod-api-token" placeholder="Leave empty for auto-generate" />
+            </div>
+            <div class="field">
+              <label>Loader Login Note (optional)</label>
+              <input id="prod-note" placeholder="Shown inside loader UI" />
+            </div>
+          </div>
+          <button class="btn-mini" onclick="createProduct()">Create Product</button>
+          <div id="products-status" class="status-bar"></div>
+        </div>
 
-            <select id="newUserRole">
+        <div class="card">
+          <div class="card-title">All Products</div>
+          <div class="small-text">Only items allowed for your role are visible.</div>
+          <table id="products-table">
+            <thead>
+              <tr>
+                <th>Name</th>
+                <th>Login Mode</th>
+                <th>Owner</th>
+                <th>API Token</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- KEYS -->
+      <div id="section-keys" class="section">
+        <div class="section-title">Keys</div>
+        <div class="section-sub">
+          Generate and view keys for your products and panels.
+        </div>
+
+        <div class="card">
+          <div class="card-title">Create Key</div>
+          <div class="card-row">
+            <div class="field">
+              <label>Product ID</label>
+              <input id="key-product-id" placeholder="Paste product _id" />
+            </div>
+            <div class="field">
+              <label>Panel Username</label>
+              <input id="key-panel-user" placeholder="Panel username" />
+            </div>
+            <div class="field">
+              <label>Days (optional)</label>
+              <input id="key-days" type="number" placeholder="0 = lifetime" />
+            </div>
+          </div>
+          <button class="btn-mini" onclick="createKey()">Create Key</button>
+          <div id="keys-status" class="status-bar"></div>
+        </div>
+
+        <div class="card">
+          <div class="card-title">Keys List</div>
+          <table id="keys-table">
+            <thead>
+              <tr>
+                <th>Key</th>
+                <th>Product</th>
+                <th>Assigned User</th>
+                <th>Expires</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- SOURCES / USERS -->
+      <div id="section-sources" class="section">
+        <div class="section-title">Sources / Panels</div>
+        <div class="section-sub">
+          Create resellers and assign products. Role hierarchy is enforced by backend.
+        </div>
+
+        <div class="card">
+          <div class="card-title">Create User</div>
+          <div class="card-row">
+            <div class="field">
+              <label>Username</label>
+              <input id="user-username" placeholder="New username" />
+            </div>
+            <div class="field">
+              <label>Password</label>
+              <input id="user-password" type="password" placeholder="New password" />
+            </div>
+            <div class="field">
+              <label>Role</label>
+              <select id="user-role">
                 <option value="OWNER">Owner Source</option>
                 <option value="SOURCE">Source</option>
                 <option value="PANEL">Panel</option>
-            </select>
-
-            <input id="newUserName" placeholder="Username" />
-            <input id="newUserPass" placeholder="Password" />
-
-            <button class="glom-btn" onclick="createUser()">Create User</button>
-
-            <h2>Users</h2>
-            <table id="usersTable"></table>
-        </div>
-
-        <!-- LOADER UPDATES -->
-        <div class="page" id="loader">
-            <h1 class="glow-red">Loader Updates</h1>
-
-            <select id="updateProductSelect"></select>
-            <input id="updateVersion" placeholder="Version (e.g. 1.0.3)" />
-            <input id="updateGofile" placeholder="Gofile Direct Download URL" />
-            <textarea id="updateNote" placeholder="Note (optional)" 
-                style="width:100%;height:80px;background:black;border:1px solid #700000;color:white;border-radius:6px;margin-top:10px;"></textarea>
-
-            <button class="glom-btn" onclick="pushUpdate()">Push Update</button>
-
-            <h2>Latest Update</h2>
-            <table id="loaderTable"></table>
-        </div>
-
-    </div> <!-- content -->
-</div> <!-- app -->
-
-<!-- ========== POPUPS / MODALS (Part 2 ends before full JS logic) ========== -->
-
-<style>
-    .modal-bg {
-        position: fixed;
-        top:0; left:0;
-        width:100%; height:100%;
-        background: rgba(0,0,0,0.75);
-        display:none;
-        justify-content:center;
-        align-items:center;
-        z-index:9;
-    }
-    .modal {
-        background:#1a0000;
-        border:1px solid #700000;
-        padding:25px;
-        width:400px;
-        border-radius:8px;
-        box-shadow:0 0 25px #700000;
-    }
-    .modal input, .modal select, .modal textarea {
-        width:100%;
-        margin-bottom:10px;
-        padding:10px;
-        border:1px solid #700000;
-        background:black;
-        color:white;
-    }
-    .modal-btn {
-        display:flex;
-        justify-content:flex-end;
-        gap:10px;
-    }
-</style>
-
-<!-- Example modal (will be dynamically reused) -->
-<div class="modal-bg" id="popup">
-    <div class="modal" id="popupContent">
-        <!-- dynamic content goes here -->
-    </div>
-</div>
-<!-- ========================================= -->
-<!-- ============ MODAL TEMPLATES ============ -->
-<!-- ========================================= -->
-
-<!-- PRODUCT EDIT POPUP -->
-<template id="modal-edit-product">
-    <h2 class="glow-red">Edit Product</h2>
-
-    <input id="editProdName" placeholder="Product Name" />
-    <select id="editProdLoginMode">
-        <option value="USER_PASS">Username + Password</option>
-        <option value="KEY">Key System</option>
-        <option value="BOTH">Both</option>
-    </select>
-
-    <input id="editProdApi" placeholder="API Token" />
-    <textarea id="editProdNote" placeholder="Loader Note (optional)" 
-        style="width:100%;height:60px;"></textarea>
-
-    <div class="modal-btn">
-        <button class="glom-btn" onclick="saveProductChanges()">Save</button>
-        <button class="glom-btn" onclick="closePopup()">Close</button>
-    </div>
-</template>
-
-<!-- ASSIGN SOURCE POPUP -->
-<template id="modal-assign-source">
-    <h2 class="glow-red">Assign Product to Source</h2>
-
-    <input id="assignSourceName" placeholder="Source Username" />
-
-    <div class="modal-btn">
-        <button class="glom-btn" onclick="assignSource()">Assign</button>
-        <button class="glom-btn" onclick="closePopup()">Close</button>
-    </div>
-</template>
-
-<!-- ASSIGN PANEL POPUP -->
-<template id="modal-assign-panel">
-    <h2 class="glow-red">Assign Product to Panel</h2>
-
-    <input id="assignPanelName" placeholder="Panel Username" />
-
-    <div class="modal-btn">
-        <button class="glom-btn" onclick="assignPanel()">Assign</button>
-        <button class="glom-btn" onclick="closePopup()">Close</button>
-    </div>
-</template>
-
-<!-- DELETE PRODUCT CONFIRM -->
-<template id="modal-delete-product">
-    <h2 class="glow-red">Delete Product</h2>
-    <p>Are you sure you want to delete this product?</p>
-
-    <div class="modal-btn">
-        <button class="glom-btn" onclick="confirmDeleteProduct()">Delete</button>
-        <button class="glom-btn" onclick="closePopup()">Cancel</button>
-    </div>
-</template>
-
-<!-- DELETE KEY CONFIRM -->
-<template id="modal-delete-key">
-    <h2 class="glow-red">Delete Key</h2>
-    <p>Are you sure you want to delete this key?</p>
-
-    <div class="modal-btn">
-        <button class="glom-btn" onclick="confirmDeleteKey()">Delete</button>
-        <button class="glom-btn" onclick="closePopup()">Cancel</button>
-    </div>
-</template>
-
-<!-- MASTER SECURITY (Disable 2FA / Discord) -->
-<template id="modal-master-security">
-    <h2 class="glow-red">Master Security Control</h2>
-
-    <input id="masterTargetUser" placeholder="Username" />
-
-    <div class="modal-btn" style="display:flex;flex-direction:column;gap:10px;">
-        <button class="glom-btn" onclick="masterDisable2FA()">Disable 2FA</button>
-        <button class="glom-btn" onclick="masterUnlinkDiscord()">Unlink Discord</button>
-        <button class="glom-btn" onclick="closePopup()">Close</button>
-    </div>
-</template>
-
-<!-- GENERIC CONFIRM POPUP -->
-<template id="modal-confirm">
-    <h2 class="glow-red">Confirm</h2>
-    <p id="confirmMessage">Are you sure?</p>
-
-    <div class="modal-btn">
-        <button class="glom-btn" id="confirmYes">Yes</button>
-        <button class="glom-btn" onclick="closePopup()">Cancel</button>
-    </div>
-</template>
-
-<!-- POPUP JS CONTROL -->
-<script>
-    let currentPopupAction = null;
-
-    function showPopup(templateId) {
-        const template = document.getElementById(templateId);
-        const popup = document.getElementById("popup");
-        const content = document.getElementById("popupContent");
-
-        content.innerHTML = template.innerHTML;
-        popup.style.display = "flex";
-    }
-
-    function closePopup() {
-        document.getElementById("popup").style.display = "none";
-        currentPopupAction = null;
-    }
-</script>
-<script>
-// ================================
-// GLOBAL CONFIG
-// ================================
-const API = "/glom/api";
-let USER = null;
-
-// ================================
-// LOAD USER (from localStorage)
-// ================================
-function loadUser() {
-    try {
-        USER = JSON.parse(localStorage.getItem("GLOM_USER"));
-    } catch {
-        USER = null;
-    }
-}
-
-// ================================
-// SAVE USER
-// ================================
-function saveUser(u) {
-    USER = u;
-    localStorage.setItem("GLOM_USER", JSON.stringify(u));
-}
-
-// ================================
-// LOGOUT
-// ================================
-function logout() {
-    localStorage.removeItem("GLOM_USER");
-    window.location.href = "/auth/login";
-}
-
-// ================================
-// LOGIN
-// ================================
-async function login() {
-    const user = document.getElementById("loginUser").value;
-    const pass = document.getElementById("loginPass").value;
-
-    const res = await fetch(`${API}/auth/login`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ username: user, password: pass })
-    });
-
-    const data = await res.json();
-
-    if (!data.success) {
-        alert(data.message || "Login failed");
-        return;
-    }
-
-    saveUser(data.user);
-    window.location.href = "/";
-}
-
-// ================================
-// APPLY ROLE PERMISSIONS
-// ================================
-function applyRoleVisibility() {
-    if (!USER) return;
-
-    const lvl = USER.role.level;
-
-    hideAllRoleBlocks();
-
-    if (lvl >= 999) document.querySelectorAll(".role-master").forEach(e => e.style.display = "block");
-    if (lvl >= 700) document.querySelectorAll(".role-owner").forEach(e => e.style.display = "block");
-    if (lvl >= 400) document.querySelectorAll(".role-source").forEach(e => e.style.display = "block");
-    
-    document.querySelectorAll(".role-panel").forEach(e => e.style.display = "block");
-}
-
-function hideAllRoleBlocks() {
-    document.querySelectorAll("[class*='role-']").forEach(e => e.style.display = "none");
-}
-
-// ================================
-// LOAD PRODUCTS
-// ================================
-async function loadProducts() {
-    const res = await fetch(`${API}/products/list`, {
-        headers: { "Authorization": `Bearer ${USER.token}` }
-    });
-    const data = await res.json();
-
-    if (!data.success) {
-        alert("Failed to load products");
-        return;
-    }
-
-    const box = document.getElementById("productsBox");
-    box.innerHTML = "";
-
-    data.products.forEach(p => {
-        box.innerHTML += `
-            <div class="product-card">
-                <h3>${p.name}</h3>
-                <p>Mode: ${p.loginMode}</p>
-                <p>API: ${p.apiToken}</p>
-
-                <button class="glom-btn role-owner role-master" onclick="openEditProduct('${p._id}')">Edit</button>
-                <button class="glom-btn role-owner role-master" onclick="openDeleteProduct('${p._id}')">Delete</button>
-
-                <button class="glom-btn role-owner" onclick="openAssignSource('${p._id}')">Assign Source</button>
-                <button class="glom-btn role-owner" onclick="openAssignPanel('${p._id}')">Assign Panel</button>
-
-                <button class="glom-btn" onclick="openKeys('${p._id}')">Keys</button>
-                <button class="glom-btn" onclick="openLoaderUpdate('${p._id}')">Loader Update</button>
+              </select>
             </div>
-        `;
-    });
-}
+          </div>
+          <button class="btn-mini" onclick="createUser()">Create User</button>
+          <div id="users-status" class="status-bar"></div>
+        </div>
 
-// ================================
-// CREATE PRODUCT
-// ================================
-async function createProduct() {
-    const name = document.getElementById("prodName").value;
-    const mode = document.getElementById("prodMode").value;
+        <div class="card">
+          <div class="card-title">Assign Products</div>
+          <div class="card-row">
+            <div class="field">
+              <label>Product ID</label>
+              <input id="assign-product-id" placeholder="Product _id" />
+            </div>
+            <div class="field">
+              <label>Source Username</label>
+              <input id="assign-source-username" placeholder="Source username" />
+            </div>
+            <div class="field">
+              <label>Panel Username</label>
+              <input id="assign-panel-username" placeholder="Panel username" />
+            </div>
+          </div>
+          <div class="card-row">
+            <button class="btn-mini" onclick="assignProductToSource()">Assign to Source</button>
+            <button class="btn-mini" onclick="assignProductToPanel()">Assign to Panel</button>
+          </div>
+        </div>
 
-    const res = await fetch(`${API}/products/create`, {
-        method: "POST",
-        headers: {
-            "Authorization": `Bearer ${USER.token}`,
-            "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ name, loginMode: mode })
-    });
+        <div class="card">
+          <div class="card-title">Users</div>
+          <table id="users-table">
+            <thead>
+              <tr>
+                <th>Username</th>
+                <th>Role</th>
+                <th>Parent</th>
+              </tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </div>
 
-    const data = await res.json();
+      <!-- LOADER UPDATES -->
+      <div id="section-loader" class="section">
+        <div class="section-title">Loader Updates</div>
+        <div class="section-sub">
+          MASTER / OWNER can push loader updates. Loaders will auto-update via API.
+        </div>
 
-    if (!data.success) return alert(data.message);
-    closePopup();
-    loadProducts();
-}
+        <div class="card" id="card-loader-push">
+          <div class="card-title">Push Update</div>
+          <div class="card-row">
+            <div class="field">
+              <label>Product ID</label>
+              <input id="loader-product-id" placeholder="Product _id" />
+            </div>
+            <div class="field">
+              <label>Version</label>
+              <input id="loader-version" placeholder="1.0.0" />
+            </div>
+          </div>
+          <div class="card-row">
+            <div class="field">
+              <label>Gofile URL</label>
+              <input id="loader-gofile" placeholder="Direct gofile download URL" />
+            </div>
+          </div>
+          <div class="card-row">
+            <div class="field">
+              <label>Note (optional)</label>
+              <input id="loader-note" placeholder="Short note for loader" />
+            </div>
+          </div>
+          <button class="btn-mini" onclick="pushLoaderUpdate()">Push Update</button>
+          <div id="loader-status" class="status-bar"></div>
+        </div>
+      </div>
+    </div>
+  </div>
 
-// ================================
-// EDIT PRODUCT POPUP
-// ================================
-let CURRENT_PRODUCT = null;
+<script>
+  const API_BASE = "/glom/api";
 
-async function openEditProduct(id) {
-    CURRENT_PRODUCT = id;
-    showPopup("modal-edit-product");
+  let authToken = null;
+  let currentUser = null;
 
-    const res = await fetch(`${API}/products/get/${id}`, {
-        headers: { "Authorization": `Bearer ${USER.token}` }
-    });
-    const data = await res.json();
+  function setStatus(id, msg) {
+    const el = document.getElementById(id);
+    if (el) el.textContent = msg || "";
+  }
 
-    if (!data.success) return alert("Failed to load");
-    document.getElementById("editProdName").value = data.product.name;
-    document.getElementById("editProdLoginMode").value = data.product.loginMode;
-    document.getElementById("editProdApi").value = data.product.apiToken || "";
-}
-
-// ================================
-// SAVE EDITED PRODUCT
-// ================================
-async function saveProductChanges() {
-    const name = document.getElementById("editProdName").value;
-    const mode = document.getElementById("editProdLoginMode").value;
-    const api = document.getElementById("editProdApi").value;
-
-    const res = await fetch(`${API}/products/update/${CURRENT_PRODUCT}`, {
-        method: "POST",
-        headers: {
-            "Authorization": `Bearer ${USER.token}`,
-            "Content-Type": "application/json"
-        },
-        body: JSON.stringify({ name, loginMode: mode, apiToken: api })
-    });
-
-    const data = await res.json();
-
-    if (!data.success) return alert(data.message);
-    closePopup();
-    loadProducts();
-}
-
-// ================================
-// DELETE PRODUCT
-// ================================
-function openDeleteProduct(id) {
-    CURRENT_PRODUCT = id;
-    showPopup("modal-delete-product");
-}
-
-async function confirmDeleteProduct() {
-    const res = await fetch(`${API}/products/delete/${CURRENT_PRODUCT}`, {
-        method: "POST",
-        headers: { "Authorization": `Bearer ${USER.token}` }
-    });
-
-    const data = await res.json();
-    if (!data.success) return alert(data.message);
-    closePopup();
-    loadProducts();
-}
-
-// ================================
-// ASSIGN SOURCE
-// ================================
-function openAssignSource(id) {
-    CURRENT_PRODUCT = id;
-    showPopup("modal-assign-source");
-}
-
-async function assignSource() {
-    const username = document.getElementById("assignSourceName").value;
-
-    const res = await fetch(`${API}/products/assign-source/${CURRENT_PRODUCT}`, {
-        method: "POST",
-        headers: {
-            "Authorization": `Bearer ${USER.token}`,
-            "Content-Type": "application/json"
-        },
-        body: JSON.stringify({ username })
-    });
-
-    const data = await res.json();
-
-    if (!data.success) return alert(data.message);
-
-    closePopup();
-    loadProducts();
-}
-
-// ================================
-// ASSIGN PANEL
-// ================================
-function openAssignPanel(id) {
-    CURRENT_PRODUCT = id;
-    showPopup("modal-assign-panel");
-}
-
-async function assignPanel() {
-    const username = document.getElementById("assignPanelName").value;
-
-    const res = await fetch(`${API}/products/assign-panel/${CURRENT_PRODUCT}`, {
-        method: "POST",
-        headers: {
-            "Authorization": `Bearer ${USER.token}`,
-            "Content-Type": "application/json"
-        },
-        body: JSON.stringify({ username })
-    });
-
-    const data = await res.json();
-
-    if (!data.success) return alert(data.message);
-
-    closePopup();
-    loadProducts();
-}
-
-// ================================
-// KEYS PAGE
-// ================================
-async function openKeys(id) {
-    CURRENT_PRODUCT = id;
-
-    document.getElementById("mainPages").style.display = "none";
-    document.getElementById("keysPage").style.display = "block";
-    loadKeys(id);
-}
-
-async function loadKeys(id) {
-    const res = await fetch(`${API}/keys/list/${id}`, {
-        headers: { "Authorization": `Bearer ${USER.token}` }
-    });
-
-    const data = await res.json();
-    if (!data.success) return alert(data.message);
-
-    const box = document.getElementById("keysBox");
-    box.innerHTML = "";
-
-    data.keys.forEach(k => {
-        box.innerHTML += `
-        <div class="key-card">
-            <h3>${k.key}</h3>
-            <p>HWID: ${k.hwid || "None"}</p>
-            <p>Duration: ${k.duration}</p>
-            <p>Used: ${k.used}</p>
-
-            <button class="glom-btn" onclick="openDeleteKey('${k._id}')">Delete</button>
-        </div>`;
-    });
-}
-
-// ================================
-// DELETE KEY
-// ================================
-function openDeleteKey(id) {
-    CURRENT_PRODUCT = id;
-    showPopup("modal-delete-key");
-}
-
-async function confirmDeleteKey() {
-    const res = await fetch(`${API}/keys/delete/${CURRENT_PRODUCT}`, {
-        method: "POST",
-        headers: { "Authorization": `Bearer ${USER.token}` }
-    });
-
-    const data = await res.json();
-    if (!data.success) return alert(data.message);
-
-    closePopup();
-    loadKeys(CURRENT_PRODUCT);
-}
-
-// ================================
-// MASTER SECURITY CONTROL
-// ================================
-function openMasterSecurity() {
-    showPopup("modal-master-security");
-}
-
-async function masterDisable2FA() {
-    const user = document.getElementById("masterTargetUser").value;
-
-    const res = await fetch(`${API}/security/disable-2fa`, {
-        method: "POST",
-        headers: {
-            "Authorization": `Bearer ${USER.token}`,
-            "Content-Type": "application/json"
-        },
-        body: JSON.stringify({ username: user })
-    });
-
-    const data = await res.json();
-    alert(data.message);
-}
-
-async function masterUnlinkDiscord() {
-    const user = document.getElementById("masterTargetUser").value;
-
-    const res = await fetch(`${API}/security/unlink-discord`, {
-        method: "POST",
-        headers: {
-            "Authorization": `Bearer ${USER.token}`,
-            "Content-Type": "application/json"
-        },
-        body: JSON.stringify({ username: user })
-    });
-
-    const data = await res.json();
-    alert(data.message);
-}
-
-// ================================
-// INITIALIZE PAGE
-// ================================
-window.onload = () => {
-    loadUser();
-
-    if (!USER && !window.location.href.includes("login"))
-        return window.location.href = "/auth/login";
-
-    if (USER) {
-        applyRoleVisibility();
-        loadProducts();
+  async function api(path, options = {}) {
+    const opts = {
+      method: options.method || "GET",
+      headers: options.headers || {}
+    };
+    if (authToken) {
+      opts.headers["Authorization"] = "Bearer " + authToken;
     }
-};
+    if (options.body) {
+      opts.headers["Content-Type"] = "application/json";
+      opts.body = JSON.stringify(options.body);
+    }
+    const res = await fetch(API_BASE + path, opts);
+    let data = null;
+    try {
+      data = await res.json();
+    } catch {
+      data = { success: false, message: "Invalid JSON from server" };
+    }
+    return { ok: res.ok, status: res.status, data };
+  }
+
+  // ================= LOGIN ==================
+
+  async function handleLogin() {
+    const u = document.getElementById("login-username").value.trim();
+    const p = document.getElementById("login-password").value.trim();
+    const err = document.getElementById("login-error");
+    err.textContent = "";
+
+    if (!u || !p) {
+      err.textContent = "Please enter username and password.";
+      return;
+    }
+
+    try {
+      const res = await api("/auth/login", {
+        method: "POST",
+        body: { username: u, password: p }
+      });
+
+      if (!res.data.success) {
+        err.textContent = res.data.message || "Login failed.";
+        return;
+      }
+
+      authToken = res.data.token;
+      currentUser = res.data.user;
+
+      localStorage.setItem("glom_token", authToken);
+
+      initPanel();
+    } catch (e) {
+      err.textContent = "Network error.";
+      console.error(e);
+    }
+  }
+
+  document.getElementById("login-btn").addEventListener("click", handleLogin);
+  document
+    .getElementById("login-password")
+    .addEventListener("keydown", (e) => {
+      if (e.key === "Enter") handleLogin();
+    });
+
+  // ================= PANEL INIT ==================
+
+  function selectSection(name) {
+    document
+      .querySelectorAll(".nav-btn")
+      .forEach((b) => b.classList.remove("active"));
+    document
+      .querySelectorAll(".section")
+      .forEach((s) => s.classList.remove("active"));
+
+    const btn = document.getElementById("btn-" + name);
+    const sec = document.getElementById("section-" + name);
+    if (btn) btn.classList.add("active");
+    if (sec) sec.classList.add("active");
+
+    if (name === "products") loadProducts();
+    if (name === "keys") loadKeys();
+    if (name === "sources") loadUsers();
+  }
+
+  function applyRoleVisibility() {
+    const role = currentUser?.role || "";
+
+    // default show all
+    const hide = (id) => {
+      const el = document.getElementById(id);
+      if (el) el.classList.add("hidden");
+    };
+
+    // Master: everything visible
+    if (role === "MASTER") return;
+
+    // Owner: everything except maybe some master-only things
+    if (role === "OWNER") {
+      // Master security card hidden for non-master
+      document.getElementById("card-master-security").style.display = "none";
+      return;
+    }
+
+    // Source: hide loader card (updates), but keep sources
+    if (role === "SOURCE") {
+      hide("btn-loader");
+      document.getElementById("card-loader-push").style.display = "none";
+      document.getElementById("card-master-security").style.display = "none";
+      return;
+    }
+
+    // Panel: hide sources + loader
+    if (role === "PANEL") {
+      hide("btn-sources");
+      hide("btn-loader");
+      document.getElementById("card-loader-push").style.display = "none";
+      document.getElementById("card-master-security").style.display = "none";
+      return;
+    }
+  }
+
+  function initPanel() {
+    document.getElementById("login-view").classList.add("hidden");
+    document.getElementById("panel-view").classList.remove("hidden");
+
+    document.getElementById("sidebar-username").textContent =
+      "Logged in as: " + currentUser.username;
+    document.getElementById("sidebar-role").textContent =
+      "Role: " + currentUser.role;
+
+    if (currentUser.role !== "MASTER") {
+      document.getElementById("card-master-security").style.display = "none";
+    }
+
+    applyRoleVisibility();
+    selectSection("dashboard");
+  }
+
+  async function logout() {
+    authToken = null;
+    currentUser = null;
+    localStorage.removeItem("glom_token");
+    document.getElementById("panel-view").classList.add("hidden");
+    document.getElementById("login-view").classList.remove("hidden");
+  }
+
+  // ================= PRODUCTS ==================
+
+  async function loadProducts() {
+    setStatus("products-status", "Loading products...");
+    const res = await api("/products/list");
+    if (!res.data.success) {
+      setStatus("products-status", res.data.message || "Failed to load.");
+      return;
+    }
+    setStatus("products-status", "");
+
+    const tbody = document.querySelector("#products-table tbody");
+    tbody.innerHTML = "";
+    res.data.products.forEach((p) => {
+      const tr = document.createElement("tr");
+      tr.innerHTML = `
+        <td>${p.name}</td>
+        <td>${p.loginMode}</td>
+        <td>${p.owner || "-"}</td>
+        <td style="font-size:10px">${p.apiToken || "-"}</td>
+        <td>
+          <button class="btn-mini" onclick="editProduct('${p._id}')">Edit</button>
+          <button class="btn-mini" onclick="deleteProduct('${p._id}')">Delete</button>
+        </td>
+      `;
+      tbody.appendChild(tr);
+    });
+  }
+
+  async function createProduct() {
+    const name = document.getElementById("prod-name").value.trim();
+    const loginMode = document.getElementById("prod-login-mode").value;
+    const apiToken = document.getElementById("prod-api-token").value.trim();
+    const note = document.getElementById("prod-note").value.trim();
+
+    if (!name) {
+      setStatus("products-status", "Name is required.");
+      return;
+    }
+
+    const res = await api("/products/create", {
+      method: "POST",
+      body: { name, loginMode, apiToken, loaderLoginNote: note }
+    });
+
+    if (!res.data.success) {
+      setStatus("products-status", res.data.message || "Create failed.");
+      return;
+    }
+    setStatus("products-status", "Product created.");
+    document.getElementById("prod-name").value = "";
+    document.getElementById("prod-api-token").value = "";
+    document.getElementById("prod-note").value = "";
+    loadProducts();
+  }
+
+  async function editProduct(id) {
+    const name = prompt("New name (leave empty to keep):", "");
+    const loginMode = prompt(
+      'Login mode (USER_PASS / KEY / BOTH, leave empty to keep):',
+      ""
+    );
+    const note = prompt("Loader note (leave empty to keep):", "");
+    const apiToken = prompt("New API token (leave empty to keep):", "");
+
+    const body = { productId: id };
+    if (name) body.name = name;
+    if (loginMode) body.loginMode = loginMode;
+    if (note) body.loaderLoginNote = note;
+    if (apiToken) body.apiToken = apiToken;
+
+    const res = await api("/products/update", {
+      method: "POST",
+      body
+    });
+    if (!res.data.success) {
+      alert(res.data.message || "Update failed.");
+      return;
+    }
+    loadProducts();
+  }
+
+  async function deleteProduct(id) {
+    if (!confirm("Delete product and all related keys/updates?")) return;
+    const res = await api("/products/delete", {
+      method: "POST",
+      body: { productId: id }
+    });
+    if (!res.data.success) {
+      alert(res.data.message || "Delete failed.");
+      return;
+    }
+    loadProducts();
+  }
+
+  // ================= KEYS ==================
+
+  async function loadKeys() {
+    setStatus("keys-status", "Loading keys...");
+    const res = await api("/keys/list");
+    if (!res.data.success) {
+      setStatus("keys-status", res.data.message || "Failed to load keys.");
+      return;
+    }
+    setStatus("keys-status", "");
+
+    const tbody = document.querySelector("#keys-table tbody");
+    tbody.innerHTML = "";
+    res.data.keys.forEach((k) => {
+      const tr = document.createElement("tr");
+      tr.innerHTML = `
+        <td style="font-size:10px">${k.key}</td>
+        <td>${k.productId}</td>
+        <td>${k.assignedUser || "-"}</td>
+        <td>${k.expires ? new Date(k.expires).toLocaleString() : "Lifetime"}</td>
+        <td><button class="btn-mini" onclick="deleteKey('${k._id}')">Delete</button></td>
+      `;
+      tbody.appendChild(tr);
+    });
+  }
+
+  async function createKey() {
+    const productId = document.getElementById("key-product-id").value.trim();
+    const panelUsername = document.getElementById("key-panel-user").value.trim();
+    const days = document.getElementById("key-days").value.trim();
+
+    if (!productId || !panelUsername) {
+      setStatus("keys-status", "Product ID + Panel username required.");
+      return;
+    }
+
+    const res = await api("/keys/create", {
+      method: "POST",
+      body: {
+        productId,
+        panelUsername,
+        days: days || 0
+      }
+    });
+
+    if (!res.data.success) {
+      setStatus("keys-status", res.data.message || "Create failed.");
+      return;
+    }
+
+    setStatus("keys-status", "Key created: " + res.data.key.value);
+    loadKeys();
+  }
+
+  async function deleteKey(id) {
+    if (!confirm("Delete this key?")) return;
+    const res = await api("/keys/delete", {
+      method: "POST",
+      body: { keyId: id }
+    });
+    if (!res.data.success) {
+      alert(res.data.message || "Delete failed.");
+      return;
+    }
+    loadKeys();
+  }
+
+  // ================= USERS / SOURCES ==================
+
+  async function loadUsers() {
+    const res = await api("/users/list");
+    if (!res.data.success) {
+      setStatus("users-status", res.data.message || "Failed to load users.");
+      return;
+    }
+    setStatus("users-status", "");
+
+    const tbody = document.querySelector("#users-table tbody");
+    tbody.innerHTML = "";
+    res.data.users.forEach((u) => {
+      const tr = document.createElement("tr");
+      tr.innerHTML = `
+        <td>${u.username}</td>
+        <td><span class="tag-role">${u.role}</span></td>
+        <td>${u.parent || "-"}</td>
+      `;
+      tbody.appendChild(tr);
+    });
+  }
+
+  async function createUser() {
+    const username = document.getElementById("user-username").value.trim();
+    const password = document.getElementById("user-password").value.trim();
+    const role = document.getElementById("user-role").value;
+
+    if (!username || !password) {
+      setStatus("users-status", "Username & password required.");
+      return;
+    }
+
+    const res = await api("/users/create", {
+      method: "POST",
+      body: { username, password, role }
+    });
+
+    if (!res.data.success) {
+      setStatus("users-status", res.data.message || "Create failed.");
+      return;
+    }
+
+    setStatus("users-status", "User created.");
+    document.getElementById("user-username").value = "";
+    document.getElementById("user-password").value = "";
+    loadUsers();
+  }
+
+  async function assignProductToSource() {
+    const productId = document.getElementById("assign-product-id").value.trim();
+    const sourceUsername = document
+      .getElementById("assign-source-username")
+      .value.trim();
+    if (!productId || !sourceUsername) {
+      setStatus("users-status", "Product ID + Source username required.");
+      return;
+    }
+
+    const res = await api("/products/assign-source", {
+      method: "POST",
+      body: { productId, sourceUsername }
+    });
+    if (!res.data.success) {
+      setStatus("users-status", res.data.message || "Assign failed.");
+      return;
+    }
+    setStatus("users-status", "Product assigned to source.");
+  }
+
+  async function assignProductToPanel() {
+    const productId = document.getElementById("assign-product-id").value.trim();
+    const panelUsername = document
+      .getElementById("assign-panel-username")
+      .value.trim();
+    if (!productId || !panelUsername) {
+      setStatus("users-status", "Product ID + Panel username required.");
+      return;
+    }
+
+    const res = await api("/products/assign-panel", {
+      method: "POST",
+      body: { productId, panelUsername }
+    });
+    if (!res.data.success) {
+      setStatus("users-status", res.data.message || "Assign failed.");
+      return;
+    }
+    setStatus("users-status", "Product assigned to panel.");
+  }
+
+  // ================= LOADER UPDATES ==================
+
+  async function pushLoaderUpdate() {
+    const productId = document.getElementById("loader-product-id").value.trim();
+    const version = document.getElementById("loader-version").value.trim();
+    const gofileUrl = document.getElementById("loader-gofile").value.trim();
+    const note = document.getElementById("loader-note").value.trim();
+
+    if (!productId || !version || !gofileUrl) {
+      setStatus("loader-status", "All fields required (note is optional).");
+      return;
+    }
+
+    const res = await api("/loader/push-update", {
+      method: "POST",
+      body: { productId, version, gofileUrl, note }
+    });
+
+    if (!res.data.success) {
+      setStatus("loader-status", res.data.message || "Push failed.");
+      return;
+    }
+
+    setStatus("loader-status", "Update pushed.");
+  }
+
+  // ================= SECURITY ==================
+
+  async function toggle2FA(enable) {
+    const path = enable ? "/security/2fa/enable" : "/security/2fa/disable";
+    const res = await api(path, { method: "POST" });
+    setStatus(
+      "security-status",
+      res.data.message || (enable ? "2FA enable failed." : "2FA disable failed.")
+    );
+  }
+
+  async function linkDiscord() {
+    const id = document.getElementById("discord-id").value.trim();
+    const name = document.getElementById("discord-name").value.trim();
+    if (!id || !name) {
+      setStatus("security-status", "Discord ID and name required.");
+      return;
+    }
+    const res = await api("/security/discord/link", {
+      method: "POST",
+      body: { discordId: id, discordName: name }
+    });
+    setStatus("security-status", res.data.message || "Discord link failed.");
+  }
+
+  async function unlinkDiscord() {
+    const res = await api("/security/discord/unlink", { method: "POST" });
+    setStatus("security-status", res.data.message || "Discord unlink failed.");
+  }
+
+  async function masterDisable2FA() {
+    const username = document
+      .getElementById("master-target-username")
+      .value.trim();
+    if (!username) {
+      setStatus("security-status", "Target username is required.");
+      return;
+    }
+    const res = await api("/master/disable-2fa", {
+      method: "POST",
+      body: { username }
+    });
+    setStatus("security-status", res.data.message || "Request failed.");
+  }
+
+  async function masterUnlinkDiscord() {
+    const username = document
+      .getElementById("master-target-username")
+      .value.trim();
+    if (!username) {
+      setStatus("security-status", "Target username is required.");
+      return;
+    }
+    const res = await api("/master/unlink-discord", {
+      method: "POST",
+      body: { username }
+    });
+    setStatus("security-status", res.data.message || "Request failed.");
+  }
+
+  // ================= AUTO LOGIN FROM LOCALSTORAGE ==================
+
+  (async function autoLogin() {
+    const saved = localStorage.getItem("glom_token");
+    if (!saved) return;
+    authToken = saved;
+    try {
+      const res = await api("/auth/me");
+      if (res.data && res.data.success) {
+        currentUser = res.data.user;
+        initPanel();
+      } else {
+        localStorage.removeItem("glom_token");
+      }
+    } catch (e) {
+      console.error(e);
+    }
+  })();
 </script>
+
+</body>
+</html>
