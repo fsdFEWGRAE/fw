@@ -1,13 +1,14 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
 <meta charset="UTF-8">
 <title>GLOM Authorization</title>
 <style>
 body { background:#000; color:#fff; font-family:Arial }
 .card { border:1px solid #333; padding:15px; margin:10px }
-button { background:#b00000; color:#fff; border:none; padding:6px 12px }
+button { background:#b00000; color:#fff; border:none; padding:6px 12px; cursor:pointer }
 .hidden { display:none }
+input { padding:6px; margin:4px 0 }
 </style>
 </head>
 <body>
@@ -15,15 +16,15 @@ button { background:#b00000; color:#fff; border:none; padding:6px 12px }
 <h2>GLOM Authorization Panel</h2>
 
 <div id="loginCard" class="card">
-  <input id="user" placeholder="Username"><br><br>
-  <input id="pass" type="password" placeholder="Password"><br><br>
+  <input id="user" placeholder="Username"><br>
+  <input id="pass" type="password" placeholder="Password"><br>
   <input id="totp" placeholder="2FA (if enabled)"><br><br>
-  <button onclick="login()">Login</button>
+  <button id="loginBtn" onclick="login()">Login</button>
 </div>
 
 <div id="dashboard" class="hidden">
   <div class="card">
-    <span id="uName"></span> | <span id="uRole"></span>
+    <b id="uName"></b> | <span id="uRole"></span>
     <button onclick="logout()">Logout</button>
   </div>
 
@@ -35,39 +36,56 @@ button { background:#b00000; color:#fff; border:none; padding:6px 12px }
 
 <script>
 let TOKEN = "";
+const el = id => document.getElementById(id);
 
 function login() {
+  el("loginBtn").disabled = true;
+
   fetch("/auth/login", {
     method:"POST",
     headers:{ "Content-Type":"application/json" },
     body: JSON.stringify({
-      username:user.value,
-      password:pass.value,
-      totp:totp.value
+      username: el("user").value.trim(),
+      password: el("pass").value,
+      totp: el("totp").value.trim()
     })
-  }).then(r=>r.json()).then(d=>{
-    if(!d.token){ alert(d.error); return; }
-    TOKEN=d.token;
+  })
+  .then(async r => {
+    const d = await r.json().catch(()=>({}));
+    if (!r.ok) { alert(d.error || "Login failed"); return; }
+    TOKEN = d.token;
     load();
-  });
+  })
+  .catch(() => alert("Connection error"))
+  .finally(() => el("loginBtn").disabled = false);
 }
 
-function load(){
-  fetch("/dashboard/data",{
+function load() {
+  fetch("/dashboard/data", {
     headers:{ Authorization:"Bearer "+TOKEN }
-  }).then(r=>r.json()).then(d=>{
-    loginCard.classList.add("hidden");
-    dashboard.classList.remove("hidden");
-    uName.innerText=d.user.username;
-    uRole.innerText=d.user.role;
-    licenses.innerHTML=d.licenses.map(l=>`<div>${l.product.name} - ${l.key}</div>`).join("");
+  })
+  .then(async r => {
+    const d = await r.json().catch(()=>({}));
+    if (!r.ok) { alert("Unauthorized"); return; }
+
+    el("loginCard").classList.add("hidden");
+    el("dashboard").classList.remove("hidden");
+    el("uName").innerText = d.user.username;
+    el("uRole").innerText = d.user.role;
+
+    el("licenses").innerHTML = (d.licenses || [])
+      .map(l => `<div>${l.product?.name || "?"} - ${l.key || l.username}</div>`)
+      .join("");
   });
 }
 
-function logout(){
-  TOKEN="";
-  dashboard.classList.add("hidden");
-  loginCard.classList.remove("hidden");
+function logout() {
+  TOKEN = "";
+  el("dashboard").classList.add("hidden");
+  el("loginCard").classList.remove("hidden");
+  el("user").value = "";
+  el("pass").value = "";
+  el("totp").value = "";
 }
 </script>
 
