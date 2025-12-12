@@ -6,9 +6,7 @@
 
   <style>
     /* ========== GLOBAL ========== */
-    * {
-      box-sizing: border-box;
-    }
+    * { box-sizing: border-box; }
     body {
       background: radial-gradient(circle at top, #220000 0, #000000 60%);
       margin: 0;
@@ -80,18 +78,11 @@
       margin-right: 4px;
       margin-bottom: 4px;
     }
-    .glom-btn:hover {
-      filter: brightness(1.15);
-    }
-    .glom-btn.danger {
-      background: linear-gradient(135deg, #8b0000, #ff2626);
-    }
+    .glom-btn:hover { filter: brightness(1.15); }
+    .glom-btn.danger { background: linear-gradient(135deg, #8b0000, #ff2626); }
 
     /* ========== PANEL LAYOUT ========== */
-    #panel-container {
-      display: flex;
-      flex-direction: row;
-    }
+    #panel-container { display: flex; flex-direction: row; }
     .sidebar {
       width: 220px;
       height: 100vh;
@@ -157,9 +148,7 @@
       text-shadow: 0 0 10px #a00000;
       font-size: 22px;
     }
-    h3 {
-      color: #ff9999;
-    }
+    h3 { color: #ff9999; }
     .content-page { display: none; }
     .content-page.active { display: block; }
 
@@ -182,6 +171,8 @@
       font-size: 13px;
       border-radius: 2px;
       outline: none;
+      min-width: 180px;
+      flex: 1;
     }
     .form-grid input:focus,
     .form-grid select:focus {
@@ -189,29 +180,24 @@
       box-shadow: 0 0 8px #8b0000;
     }
 
-    .cards {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 10px;
-    }
+    .cards { display: flex; flex-wrap: wrap; gap: 10px; }
     .card {
       background: rgba(10, 10, 10, 0.95);
       border: 1px solid #3b0000;
       padding: 10px;
       border-radius: 3px;
       min-width: 260px;
-      max-width: 380px;
+      max-width: 420px;
       font-size: 13px;
       position: relative;
+      flex: 1;
     }
     .card-title {
       font-weight: 600;
       margin-bottom: 4px;
       color: #ffcccc;
     }
-    .card small {
-      color: #aaaaaa;
-    }
+    .card small { color: #aaaaaa; }
     .badge {
       display: inline-block;
       padding: 2px 6px;
@@ -236,6 +222,7 @@
       white-space: pre;
       font-family: "Consolas", monospace;
       font-size: 12px;
+      overflow:auto;
     }
 
     #profile-box {
@@ -311,7 +298,8 @@
         <input id="key-product" type="text" placeholder="Product ID" />
         <input id="key-panel" type="text" placeholder="Panel Username" />
         <input id="key-days" type="number" placeholder="Days (optional, 0 = lifetime)" />
-        <button class="glom-btn" onclick="createKey()">CREATE KEY</button>
+        <input id="key-count" type="number" placeholder="KEY COUNT (ex: 10)" />
+        <button class="glom-btn" onclick="createKeys()">CREATE KEYS</button>
       </div>
       <div id="keys-list" class="cards"></div>
     </div>
@@ -353,8 +341,8 @@
       <button onclick="disable2FA()" class="glom-btn small danger">Disable 2FA</button>
       <button onclick="unlinkDiscord()" class="glom-btn small">Unlink Discord</button>
 
-      <h3>Master Controls (MASTER only)</h3>
-      <div class="form-grid">
+      <h3 id="master-controls-title">Master Controls (MASTER only)</h3>
+      <div class="form-grid" id="master-controls-box">
         <input id="sec-user" type="text" placeholder="Target Username" />
         <button class="glom-btn small" onclick="masterDisable2FA()">MASTER DISABLE 2FA</button>
         <button class="glom-btn small danger" onclick="masterUnlinkDiscord()">MASTER UNLINK DISCORD</button>
@@ -411,26 +399,31 @@ GET /glom/api/loader/update?token=UPDATE_TOKEN
   }
 
   function setSidebarByRole(role) {
-    const navProducts = document.getElementById("nav-products");
-    const navKeys     = document.getElementById("nav-keys");
-    const navUsers    = document.getElementById("nav-users");
-    const navUpdates  = document.getElementById("nav-updates");
-    const navSecurity = document.getElementById("nav-security");
-    const navApi      = document.getElementById("nav-api");
+    const navDashboard = document.getElementById("nav-dashboard");
+    const navProducts  = document.getElementById("nav-products");
+    const navKeys      = document.getElementById("nav-keys");
+    const navUsers     = document.getElementById("nav-users");
+    const navUpdates   = document.getElementById("nav-updates");
+    const navSecurity  = document.getElementById("nav-security");
+    const navApi       = document.getElementById("nav-api");
 
-    // show all by default
-    [navProducts, navKeys, navUsers, navUpdates, navSecurity, navApi]
+    // show all first
+    [navDashboard,navProducts,navKeys,navUsers,navUpdates,navSecurity,navApi]
       .forEach(x => x.classList.remove("hidden"));
 
+    // hide Products form for roles later via loadProfile()
+    // HARD RULES:
+    // - API Docs: MASTER + OWNER ONLY
+    // - PANEL: dashboard + keys + security only
+    // - SOURCE: no API Docs (and you wanted API not visible to Source)
     if (role === "MASTER") {
       // sees everything
     } else if (role === "OWNER") {
-      // sees almost everything except some master-only logic handled in Security
+      // sees everything except OWNER management is backend-enforced
     } else if (role === "SOURCE") {
-      // no loader updates, but can create panel + products from assigned
-      navUpdates.classList.add("hidden");
+      navApi.classList.add("hidden");
+      // SOURCE can still use: Products/Keys/Users/Security (as reseller)
     } else if (role === "PANEL") {
-      // only dashboard + keys + security
       navProducts.classList.add("hidden");
       navUsers.classList.add("hidden");
       navUpdates.classList.add("hidden");
@@ -439,6 +432,14 @@ GET /glom/api/loader/update?token=UPDATE_TOKEN
   }
 
   function openPage(id) {
+    // block forbidden pages just in case (extra protection)
+    if (currentUser) {
+      if ((id === "api") && !(currentUser.role === "MASTER" || currentUser.role === "OWNER")) return;
+      if ((id === "users") && (currentUser.role === "PANEL")) return;
+      if ((id === "products") && (currentUser.role === "PANEL")) return;
+      if ((id === "updates") && (currentUser.role === "PANEL")) return;
+    }
+
     const pages = document.querySelectorAll(".content-page");
     pages.forEach(p => p.classList.remove("active"));
     const page = document.getElementById("page-" + id);
@@ -509,10 +510,8 @@ GET /glom/api/loader/update?token=UPDATE_TOKEN
     try {
       const res = await api("/auth/me");
       const data = await res.json();
-      if (!data.success) {
-        logout();
-        return;
-      }
+      if (!data.success) { logout(); return; }
+
       currentUser = data.user;
       document.getElementById("side-user-info").textContent =
         currentUser.username + " (" + currentUser.role + ")";
@@ -533,8 +532,33 @@ GET /glom/api/loader/update?token=UPDATE_TOKEN
       if (!data.success) return;
 
       currentUser = data.user;
+
       document.getElementById("side-user-info").textContent =
         currentUser.username + " (" + currentUser.role + ")";
+
+      // Hide create-product form for non MASTER/OWNER
+      const prodForm = document.getElementById("products-form");
+      if (currentUser.role === "MASTER" || currentUser.role === "OWNER") {
+        prodForm.classList.remove("hidden");
+      } else {
+        prodForm.classList.add("hidden");
+      }
+
+      // Master controls visible only MASTER
+      const masterTitle = document.getElementById("master-controls-title");
+      const masterBox = document.getElementById("master-controls-box");
+      if (currentUser.role === "MASTER") {
+        masterTitle.classList.remove("hidden");
+        masterBox.classList.remove("hidden");
+      } else {
+        masterTitle.classList.add("hidden");
+        masterBox.classList.add("hidden");
+      }
+
+      // API docs page protection (also hide in sidebar)
+      if (!(currentUser.role === "MASTER" || currentUser.role === "OWNER")) {
+        document.getElementById("nav-api").classList.add("hidden");
+      }
 
       const box = document.getElementById("profile-box");
       box.innerHTML = `
@@ -583,15 +607,19 @@ GET /glom/api/loader/update?token=UPDATE_TOKEN
 
       const list = document.getElementById("products-list");
       list.innerHTML = "";
+
       data.products.forEach(p => {
         const div = document.createElement("div");
         div.className = "card";
+
+        const showApiToken = (currentUser.role === "MASTER" || currentUser.role === "OWNER");
+
         div.innerHTML = `
           <div class="card-title">${p.name}</div>
           <div><small>ID:</small> ${p._id}</div>
           <div><small>Owner:</small> ${p.owner}</div>
           <div><small>Login Mode:</small> ${p.loginMode}</div>
-          <div><small>API Token:</small> ${p.apiToken || "—"}</div>
+          ${showApiToken ? `<div><small>API Token:</small> <b>${p.apiToken || "—"}</b></div>` : ``}
           <div><small>Note:</small> ${p.loaderLoginNote || "—"}</div>
           <div><small>Allowed Sources:</small> ${(p.allowedSources || []).join(", ") || "—"}</div>
           <div><small>Allowed Panels:</small> ${(p.allowedPanels || []).join(", ") || "—"}</div>
@@ -601,16 +629,18 @@ GET /glom/api/loader/update?token=UPDATE_TOKEN
 
         const btnBox = div.querySelector("#prod-btns-" + p._id);
 
-        // MASTER & OWNER can fully manage
+        // MASTER & OWNER: full control
         if (currentUser.role === "MASTER" || currentUser.role === "OWNER") {
           btnBox.innerHTML += `
             <button class="glom-btn small" onclick="regenerateAPI('${p._id}')">Create/Regenerate API</button>
-            <button class="glom-btn small" onclick="editProduct('${p._id}','${p.name.replace(/'/g,"\\'")}','${p.loginMode}')">Edit</button>
+            <button class="glom-btn small" onclick="editProduct('${p._id}','${(p.name||"").replace(/'/g,"\\'")}','${p.loginMode||""}')">Edit</button>
             <button class="glom-btn small danger" onclick="deleteProduct('${p._id}')">Delete</button>
             <button class="glom-btn small" onclick="assignSource('${p._id}')">Assign Source</button>
             <button class="glom-btn small" onclick="assignPanel('${p._id}')">Assign Panel</button>
           `;
-        } else if (currentUser.role === "SOURCE") {
+        }
+        // SOURCE: can assign panel (from products he has)
+        else if (currentUser.role === "SOURCE") {
           btnBox.innerHTML += `
             <button class="glom-btn small" onclick="assignPanel('${p._id}')">Assign Panel</button>
           `;
@@ -629,7 +659,7 @@ GET /glom/api/loader/update?token=UPDATE_TOKEN
       });
       const data = await res.json();
       if (!data.success) return alert(data.message || "Error regenerating API");
-      alert("New API Token: " + data.apiToken);
+      alert("New API Token:\n" + data.apiToken);
       loadProducts();
     } catch (e) {
       console.error(e);
@@ -638,12 +668,12 @@ GET /glom/api/loader/update?token=UPDATE_TOKEN
   }
 
   async function editProduct(id, oldName, oldMode) {
-    const name = prompt("New name (leave empty to keep):", oldName) || undefined;
-    const loginMode = prompt("Login mode (USER_PASS / KEY / BOTH, empty = keep):", oldMode) || undefined;
+    const name = prompt("New name (leave empty to keep):", oldName) || "";
+    const loginMode = prompt("Login mode (USER_PASS / KEY / BOTH, empty = keep):", oldMode) || "";
     try {
       const body = { productId: id };
-      if (name) body.name = name;
-      if (loginMode) body.loginMode = loginMode;
+      if (name.trim()) body.name = name.trim();
+      if (loginMode.trim()) body.loginMode = loginMode.trim();
       const res = await api("/products/update", {
         method: "POST",
         body: JSON.stringify(body)
@@ -710,22 +740,26 @@ GET /glom/api/loader/update?token=UPDATE_TOKEN
   }
 
   // ================== KEYS ==================
-  async function createKey() {
+  async function createKeys() {
     const productId = document.getElementById("key-product").value.trim();
     const panelUsername = document.getElementById("key-panel").value.trim();
     const daysStr = document.getElementById("key-days").value.trim();
+    const countStr = document.getElementById("key-count").value.trim();
+
     const days = daysStr ? Number(daysStr) : null;
+    const count = countStr ? Number(countStr) : 1;
 
     if (!productId || !panelUsername) return alert("Product ID + Panel username required.");
+    if (!Number.isFinite(count) || count < 1 || count > 500) return alert("Invalid KEY COUNT (1-500).");
 
     try {
       const res = await api("/keys/create", {
         method: "POST",
-        body: JSON.stringify({ productId, panelUsername, days })
+        body: JSON.stringify({ productId, panelUsername, days, count })
       });
       const data = await res.json();
-      if (!data.success) return alert(data.message || "Error creating key");
-      alert("Key created:\n" + data.key.value);
+      if (!data.success) return alert(data.message || "Error creating keys");
+      alert("Keys created: " + (data.count || count));
       loadKeys();
     } catch (e) {
       console.error(e);
@@ -799,8 +833,8 @@ GET /glom/api/loader/update?token=UPDATE_TOKEN
           <div class="card-title">${u.username}</div>
           <div><span class="badge role">${u.role}</span></div>
           <div><small>Parent:</small> ${u.parent || "MASTER"}</div>
-          <div><small>2FA:</small> ${u.twoFA && u.twoFA.enabled ? "ENABLED" : "DISABLED"}</div>
-          <div><small>Discord:</small> ${u.discord && u.discord.linked ? (u.discord.name || u.discord.id) : "Not linked"}</div>
+          <div><small>2FA:</small> ${(u.twoFA && u.twoFA.enabled) ? "ENABLED" : "DISABLED"}</div>
+          <div><small>Discord:</small> ${(u.discord && u.discord.linked) ? (u.discord.name || u.discord.id) : "Not linked"}</div>
         `;
         list.appendChild(div);
       });
@@ -835,16 +869,14 @@ GET /glom/api/loader/update?token=UPDATE_TOKEN
   }
 
   async function loadUpdates() {
-    // ما عندنا route كامل لعرض التحديثات حالياً في الباك إند
-    // نعرض رسالة بسيطة
     const list = document.getElementById("updates-list");
     list.innerHTML = "";
     const div = document.createElement("div");
     div.className = "card";
     div.innerHTML = `
-      <div class="card-title">Loader Updates Info</div>
-      <div>Updates are pushed per product with force-update logic.</div>
-      <div>Loader uses /glom/api/loader/check + /glom/api/loader/update.</div>
+      <div class="card-title">Loader Updates</div>
+      <div>Push updates per product using: <b>/loader/push-update</b></div>
+      <div>Loader checks: <b>/loader/check</b> then downloads: <b>/loader/update</b></div>
     `;
     list.appendChild(div);
   }
