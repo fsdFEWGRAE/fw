@@ -22,20 +22,7 @@ input { padding:6px; margin:4px 0 }
   <button id="loginBtn" onclick="login()">Login</button>
 </div>
 
-<div id="dashboard" class="hidden">
-  <div class="card">
-    <b id="uName"></b> | <span id="uRole"></span>
-    <button onclick="logout()">Logout</button>
-  </div>
-
-  <div class="card">
-    <h3>Licenses</h3>
-    <div id="licenses"></div>
-  </div>
-</div>
-
 <script>
-let TOKEN = "";
 const el = id => document.getElementById(id);
 
 function login() {
@@ -52,34 +39,10 @@ function login() {
   .then(async r => {
     const d = await r.json().catch(()=>({}));
     if (!r.ok) { alert(d.error || "Login failed"); return; }
-    TOKEN = d.token;
-    load();
+    alert("Login success ✔");
   })
   .catch(()=>alert("Connection error"))
   .finally(()=> el("loginBtn").disabled = false);
-}
-
-function load() {
-  fetch("/dashboard/data", {
-    headers:{ Authorization:"Bearer "+TOKEN }
-  })
-  .then(async r => {
-    const d = await r.json().catch(()=>({}));
-    if (!r.ok) { alert("Unauthorized"); return; }
-    el("loginCard").classList.add("hidden");
-    el("dashboard").classList.remove("hidden");
-    el("uName").innerText = d.user.username;
-    el("uRole").innerText = d.user.role;
-    el("licenses").innerHTML = (d.licenses||[])
-      .map(l => `<div>${l.product?.name || "?"} - ${l.key || l.username}</div>`).join("");
-  });
-}
-
-function logout() {
-  TOKEN="";
-  el("dashboard").classList.add("hidden");
-  el("loginCard").classList.remove("hidden");
-  el("user").value=""; el("pass").value=""; el("totp").value="";
 }
 </script>
 
