@@ -1,5 +1,5 @@
 // =====================================================
-// GLOM AUTHORIZATION SYSTEM - FINAL (WITH DB DEBUG)
+// GLOM AUTHORIZATION SYSTEM - FINAL (WITH MASTER RESET)
 // =====================================================
 
 import express from "express";
@@ -36,36 +36,9 @@ const UserSchema = new mongoose.Schema({
   username: String,
   password: String,
   role: { type: String, enum: ["MASTER", "OWNER", "SOURCE", "PANEL"] },
-  discord: { id: String, username: String },
   totp: { enabled: { type: Boolean, default: false }, secret: String }
 });
 const User = mongoose.model("User", UserSchema);
-
-const ProductSchema = new mongoose.Schema({
-  name: String,
-  authType: { type: String, enum: ["KEY", "USERPASS", "BOTH"] },
-  apiPath: { type: String, unique: true },
-  note: String,
-  update: {
-    latestVersion: String,
-    downloadUrl: String,
-    force: Boolean
-  }
-});
-const Product = mongoose.model("Product", ProductSchema);
-
-const LicenseSchema = new mongoose.Schema({
-  product: { type: mongoose.Schema.Types.ObjectId, ref: "Product" },
-  type: { type: String, enum: ["KEY", "USERPASS"] },
-  key: String,
-  username: String,
-  password: String,
-  hwid: String,
-  status: { type: String, enum: ["ACTIVE", "DISABLED", "EXPIRED"], default: "ACTIVE" },
-  expiresAt: Date,
-  createdBy: { type: mongoose.Schema.Types.ObjectId, ref: "User" }
-});
-const License = mongoose.model("License", LicenseSchema);
 
 // =====================================================
 // UTILS
@@ -84,10 +57,6 @@ function auth(roles = []) {
   };
 }
 
-const genKey = () => Math.random().toString(36).substring(2, 10).toUpperCase();
-const genUser = () => "u_" + Math.random().toString(36).substring(2, 8);
-const genPass = () => Math.random().toString(36).substring(2, 12);
-
 // =====================================================
 // SERVE PANEL
 // =====================================================
@@ -98,15 +67,23 @@ app.get("/", (req, res) => {
 // =====================================================
 // AUTH
 // =====================================================
+
+// BOOTSTRAP (مرة وحدة)
 app.post("/auth/bootstrap", async (req, res) => {
   const exists = await User.findOne({ role: "MASTER" });
   if (exists) return res.status(403).json({ error: "Already initialized" });
 
   const hash = await bcrypt.hash(req.body.password, 10);
-  await User.create({ username: req.body.username, password: hash, role: "MASTER" });
+  await User.create({
+    username: req.body.username,
+    password: hash,
+    role: "MASTER"
+  });
+
   res.json({ success: true });
 });
 
+// LOGIN
 app.post("/auth/login", async (req, res) => {
   const u = await User.findOne({ username: req.body.username });
   if (!u) return res.status(401).json({ error: "Invalid credentials" });
@@ -133,71 +110,26 @@ app.post("/auth/login", async (req, res) => {
 });
 
 // =====================================================
-// DASHBOARD
+// 🔐 FORCE RESET MASTER PASSWORD (الحل النهائي)
 // =====================================================
-app.get("/dashboard/data", auth(), async (req, res) => {
-  const user = await User.findById(req.user.id);
-  const products = await Product.find();
-  const licenses = await License.find({ createdBy: user._id }).populate("product");
+app.post("/__debug/reset-master", async (req, res) => {
+  const { secret, newPassword } = req.body;
 
-  res.json({
-    user: { username: user.username, role: user.role },
-    products,
-    licenses
-  });
-});
-
-// =====================================================
-// PRODUCTS
-// =====================================================
-app.post("/products/create", auth(["MASTER", "OWNER"]), async (req, res) => {
-  res.json(await Product.create(req.body));
-});
-
-// =====================================================
-// LICENSES
-// =====================================================
-app.post("/licenses/create", auth(["MASTER", "OWNER", "SOURCE"]), async (req, res) => {
-  const l = await License.create({
-    product: req.body.productId,
-    type: req.body.type,
-    key: req.body.type === "KEY" ? genKey() : undefined,
-    username: req.body.type !== "KEY" ? genUser() : undefined,
-    password: req.body.type !== "KEY" ? genPass() : undefined,
-    createdBy: req.user.id
-  });
-  res.json(l);
-});
-
-// =====================================================
-// LOADER API
-// =====================================================
-app.post("/glom/api/loader/:name", async (req, res) => {
-  const product = await Product.findOne({ apiPath: `/glom/api/loader/${req.params.name}` });
-  if (!product) return res.sendStatus(404);
-
-  const lic = await License.findOne({ key: req.body.key, product: product._id });
-  if (!lic || lic.status !== "ACTIVE") return res.sendStatus(403);
-
-  if (!lic.hwid) {
-    lic.hwid = req.body.hwid;
-    await lic.save();
-  } else if (lic.hwid !== req.body.hwid) {
-    return res.status(403).json({ error: "HWID mismatch" });
+  if (secret !== process.env.JWT_SECRET) {
+    return res.status(403).json({ error: "Forbidden" });
   }
 
-  res.json({ success: true });
-});
+  const master = await User.findOne({ role: "MASTER" });
+  if (!master) {
+    return res.status(404).json({ error: "No MASTER found" });
+  }
 
-// =====================================================
-// 🔎 DB DEBUG (تشخيص فقط)
-// =====================================================
-app.get("/__debug/db", async (req, res) => {
-  const users = await User.find();
+  master.password = await bcrypt.hash(newPassword, 10);
+  await master.save();
+
   res.json({
-    mongoUriUsed: process.env.MONGO_URI?.replace(/:\/\/.*@/, "://***@"),
-    count: users.length,
-    users: users.map(u => ({ username: u.username, role: u.role }))
+    success: true,
+    username: master.username
   });
 });
 
