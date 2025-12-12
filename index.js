@@ -20,8 +20,9 @@ import { fileURLToPath } from "url";
 dotenv.config();
 
 // ======================= CONFIG ==========================
-const PORT = process.env.PORT || 3000;
+const PORT = 3000;
 const JWT_SECRET = process.env.JWT_SECRET || "GLOM_AUTH_SECRET_2025";
+const GOFILE_TOKEN = process.env.GOFILE_TOKEN || "PASTE_GOFILE_API_TOKEN";
 const MONGO_URI = process.env.MONGO_URI || "PASTE_MONGO_ATLAS_URI";
 
 // ======================= EXPRESS INIT =====================
@@ -30,22 +31,15 @@ app.use(cors());
 app.use(express.json());
 app.use(useragent.express());
 
-// ======================= STATIC THEME =====================
+// Resolve __dirname (ESM)
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-// الصفحة الرئيسية: الثيم
-app.get("/", (req, res) => {
-  res.sendFile(path.join(__dirname, "theme.html"));
-});
-
 // ======================= DATABASE =========================
-mongoose.set("strictQuery", false);
-
 mongoose
-  .connect(MONGO_URI)
+  .connect(MONGO_URI, { useNewUrlParser: true, useUnifiedTopology: true })
   .then(() => console.log("Mongo Connected ✔"))
-  .catch((err) => console.error("DB ERROR ❌", err));
+  .catch((err) => console.log("DB ERROR ❌", err));
 
 // ======================= SCHEMAS ==========================
 
@@ -69,19 +63,19 @@ const userSchema = new mongoose.Schema({
 // PRODUCTS
 const productSchema = new mongoose.Schema({
   name: String,
-  owner: String, // MASTER or OWNER
+  owner: String, // created by (MASTER or OWNER username)
   loginMode: String, // USER_PASS | KEY | BOTH
-  apiToken: String, // custom per product for loader
+  apiToken: String, // custom per product (for loader auth)
   allowedSources: [String], // usernames of SOURCE allowed to resell
   allowedPanels: [String], // usernames of PANEL allowed to use
-  loaderLoginNote: String, // optional text for loader login
+  loaderLoginNote: String, // hint text ("Use KEY" / "Use USER+PASS")
 });
 
 // KEYS
 const keySchema = new mongoose.Schema({
   productId: String,
   key: String,
-  assignedUser: String,
+  assignedUser: String, // PANEL username
   expires: Date,
 });
 
@@ -89,13 +83,13 @@ const keySchema = new mongoose.Schema({
 const updateSchema = new mongoose.Schema({
   productId: String,
   version: String,
-  gofileContentId: String, // direct or normal gofile link
+  gofileContentId: String, // we store full gofile link or contentId
   note: String,
   uploadedBy: String,
   date: { type: Date, default: Date.now },
 });
 
-// SESSIONS (ADVANCED)
+// SESSION LOG
 const sessionSchema = new mongoose.Schema({
   userId: String,
   username: String,
@@ -116,45 +110,37 @@ const Session = mongoose.model("sessions", sessionSchema);
 
 // ======================= AUTO CREATE MASTER ==========================
 async function autoCreateMaster() {
-  try {
-    const exist = await User.findOne({ role: "MASTER" });
-    if (!exist) {
-      const hashed = await bcrypt.hash("JustSpecter0", 10);
-      await User.create({
-        username: "RAXX",
-        password: hashed,
-        role: "MASTER",
-      });
-      console.log(
-        "MASTER AUTO CREATED ✔ Username: RAXX | Pass: JustSpecter0"
-      );
-    }
-  } catch (e) {
-    console.error("AUTO MASTER ERROR", e);
+  const exist = await User.findOne({ role: "MASTER" });
+  if (!exist) {
+    const hashed = await bcrypt.hash("JustSpecter0", 10);
+    await User.create({
+      username: "RAXX",
+      password: hashed,
+      role: "MASTER",
+      parent: "SYSTEM",
+    });
+    console.log("MASTER AUTO CREATED ✔ Username: RAXX | Pass: JustSpecter0");
   }
 }
 autoCreateMaster();
 
-// ======================= JWT VERIFY MIDDLEWARE =======================
+// ======================= HELPERS ==========================
 function auth(req, res, next) {
   const token = req.headers.authorization?.split(" ")[1];
   if (!token)
     return res
       .status(401)
-      .json({ success: false, message: "Unauthorized" });
+      .json({ success: false, message: "Unauthorized (no token)" });
 
   try {
     const decoded = jwt.verify(token, JWT_SECRET);
     req.user = decoded;
     next();
   } catch {
-    return res
-      .status(401)
-      .json({ success: false, message: "Invalid Token" });
+    return res.status(401).json({ success: false, message: "Invalid token" });
   }
 }
 
-// ======================= ROLE VALIDATION ==============================
 function allowRoles(...allowed) {
   return (req, res, next) => {
     if (!req.user || !allowed.includes(req.user.role)) {
@@ -167,43 +153,50 @@ function allowRoles(...allowed) {
   };
 }
 
-// ======================= SESSION TRACK ===============================
-async function trackSession(req, userid, username) {
-  try {
-    const ip =
-      req.headers["x-forwarded-for"] ||
-      req.socket.remoteAddress ||
-      "Unknown";
-    const geo = geoip.lookup(ip) || {};
+async function trackSession(req, userId, username) {
+  const ip =
+    req.headers["x-forwarded-for"] ||
+    req.socket.remoteAddress ||
+    "UnknownIP";
 
-    await Session.create({
-      userId: userid,
-      username,
-      ip,
-      device: req.useragent.platform,
-      os: req.useragent.os,
-      browser: req.useragent.browser,
-      country: geo.country || "N/A",
-      city: geo.city || "N/A",
-    });
-  } catch (e) {
-    console.error("SESSION TRACK ERROR", e);
-  }
+  const geo = geoip.lookup(ip) || {};
+
+  await Session.create({
+    userId,
+    username,
+    ip,
+    device: req.useragent.platform,
+    os: req.useragent.os,
+    browser: req.useragent.browser,
+    country: geo.country || "N/A",
+    city: geo.city || "N/A",
+  });
 }
 
-// ======================= HELPER: RANDOM KEY ===========================
 function randomKey(len = 32) {
   const chars =
     "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
   let r = "";
-  for (let i = 0; i < len; i++)
+  for (let i = 0; i < len; i++) {
     r += chars[Math.floor(Math.random() * chars.length)];
+  }
   return r;
 }
 
-// ======================= AUTH ROUTES ==================================
+// ======================= PANEL UI ROUTES =============================
+// كل الواجهة في theme.html
+function serveTheme(req, res) {
+  res.sendFile(path.join(__dirname, "theme.html"));
+}
 
-// LOGIN (Username + Password only)
+app.get("/", serveTheme);
+app.get("/auth", serveTheme);
+app.get("/auth/login", serveTheme);
+app.get("/auth/*", serveTheme);
+
+// ======================= AUTH ROUTES =================================
+
+// LOGIN
 app.post("/glom/api/auth/login", async (req, res) => {
   try {
     const { username, password } = req.body;
@@ -224,7 +217,6 @@ app.post("/glom/api/auth/login", async (req, res) => {
         .status(401)
         .json({ success: false, message: "Invalid login" });
 
-    // Create JWT
     const token = jwt.sign(
       {
         id: user._id.toString(),
@@ -235,7 +227,6 @@ app.post("/glom/api/auth/login", async (req, res) => {
       { expiresIn: "7d" }
     );
 
-    // Track session ADVANCED
     await trackSession(req, user._id.toString(), user.username);
 
     return res.json({
@@ -253,7 +244,7 @@ app.post("/glom/api/auth/login", async (req, res) => {
   }
 });
 
-// GET CURRENT USER
+// CURRENT USER
 app.get("/glom/api/auth/me", auth, async (req, res) => {
   try {
     const user = await User.findById(req.user.id).lean();
@@ -273,7 +264,7 @@ app.get("/glom/api/auth/me", auth, async (req, res) => {
       },
     });
   } catch (e) {
-    console.error("ME ERROR", e);
+    console.error("AUTH ME ERROR", e);
     res.status(500).json({ success: false, message: "Server error" });
   }
 });
@@ -282,6 +273,7 @@ app.get("/glom/api/auth/me", auth, async (req, res) => {
 
 // CREATE PRODUCT (MASTER + OWNER)
 // loginMode: "USER_PASS" | "KEY" | "BOTH"
+// apiToken optional → auto generate
 app.post(
   "/glom/api/products/create",
   auth,
@@ -305,14 +297,13 @@ app.post(
 
       const existing = await Product.findOne({ apiToken });
       if (existing)
-        return res.status(400).json({
-          success: false,
-          message: "API token already used",
-        });
+        return res
+          .status(400)
+          .json({ success: false, message: "API token already used" });
 
       const doc = await Product.create({
         name,
-        owner: req.user.username,
+        owner: req.user.username, // owner = من صنع المنتج
         loginMode,
         apiToken,
         allowedSources: [],
@@ -328,32 +319,50 @@ app.post(
   }
 );
 
-// LIST PRODUCTS (filtered by role)
+// LIST PRODUCTS (role aware)
+// MASTER + OWNER : كل المنتجات
+// SOURCE : المنتجات المسموح له بها
+// PANEL : المنتجات المرتبطة بالبنل
 app.get("/glom/api/products/list", auth, async (req, res) => {
   try {
-    let products;
     const user = await User.findById(req.user.id).lean();
     if (!user)
       return res
         .status(404)
         .json({ success: false, message: "User not found" });
 
-    if (user.role === "MASTER") {
+    let products = [];
+
+    if (user.role === "MASTER" || user.role === "OWNER") {
       products = await Product.find({}).lean();
-    } else if (user.role === "OWNER") {
-      products = await Product.find({ owner: user.username }).lean();
     } else if (user.role === "SOURCE") {
-      products = await Product.find({
-        allowedSources: user.username,
-      }).lean();
+      products = await Product.find({ allowedSources: user.username }).lean();
     } else if (user.role === "PANEL") {
-      products = await Product.find({
-        allowedPanels: user.username,
-      }).lean();
+      products = await Product.find({ allowedPanels: user.username }).lean();
     } else {
       return res
         .status(403)
-        .json({ success: false, message: "403 — Role not supported" });
+        .json({ success: false, message: "Role not supported" });
+    }
+
+    // إخفاء API عن SOURCE و PANEL
+    if (user.role !== "MASTER" && user.role !== "OWNER") {
+      products = products.map((p) => {
+        const { apiToken, ...rest } = p;
+        return rest;
+      });
+    }
+
+    // إضافة رابط API (MASTER + OWNER فقط)
+    if (user.role === "MASTER" || user.role === "OWNER") {
+      const baseUrl =
+        process.env.PUBLIC_BASE_URL || "https://my-src-a5iw.onrender.com";
+      products = products.map((p) => ({
+        ...p,
+        apiLink: `${baseUrl}/glom/api/loader/check?apiToken=${encodeURIComponent(
+          p.apiToken
+        )}`,
+      }));
     }
 
     res.json({ success: true, products });
@@ -363,7 +372,7 @@ app.get("/glom/api/products/list", auth, async (req, res) => {
   }
 });
 
-// UPDATE PRODUCT (MASTER + OWNER)
+// UPDATE PRODUCT (MASTER + OWNER) — نفس الصلاحيات على كل المنتجات
 app.post(
   "/glom/api/products/update",
   auth,
@@ -383,26 +392,21 @@ app.post(
           .status(404)
           .json({ success: false, message: "Product not found" });
 
-      if (req.user.role === "OWNER" && prod.owner !== req.user.username)
-        return res
-          .status(403)
-          .json({ success: false, message: "Not your product" });
-
       if (name) prod.name = name;
       if (loginMode && ["USER_PASS", "KEY", "BOTH"].includes(loginMode))
         prod.loginMode = loginMode;
       if (typeof loaderLoginNote === "string")
         prod.loaderLoginNote = loaderLoginNote;
+
       if (apiToken && apiToken.trim()) {
         const existToken = await Product.findOne({
           apiToken,
           _id: { $ne: productId },
         });
         if (existToken)
-          return res.status(400).json({
-            success: false,
-            message: "API token already used",
-          });
+          return res
+            .status(400)
+            .json({ success: false, message: "API token already used" });
         prod.apiToken = apiToken;
       }
 
@@ -434,18 +438,13 @@ app.post(
           .status(404)
           .json({ success: false, message: "Product not found" });
 
-      if (req.user.role === "OWNER" && prod.owner !== req.user.username)
-        return res
-          .status(403)
-          .json({ success: false, message: "Not your product" });
-
       await Product.deleteOne({ _id: productId });
       await Key.deleteMany({ productId });
       await Update.deleteMany({ productId });
 
       res.json({
         success: true,
-        message: "Product & related data deleted",
+        message: "Product & related keys/updates deleted",
       });
     } catch (e) {
       console.error("PRODUCT DELETE", e);
@@ -454,49 +453,7 @@ app.post(
   }
 );
 
-// REGENERATE API TOKEN (MASTER + OWNER)
-app.post(
-  "/glom/api/products/regenerate-api",
-  auth,
-  allowRoles("MASTER", "OWNER"),
-  async (req, res) => {
-    try {
-      const { productId } = req.body;
-      if (!productId)
-        return res
-          .status(400)
-          .json({ success: false, message: "Missing productId" });
-
-      const prod = await Product.findById(productId);
-      if (!prod)
-        return res
-          .status(404)
-          .json({ success: false, message: "Product not found" });
-
-      if (req.user.role === "OWNER" && prod.owner !== req.user.username)
-        return res
-          .status(403)
-          .json({ success: false, message: "Not your product" });
-
-      const newToken = "GLOM_" + randomKey(20);
-      prod.apiToken = newToken;
-      await prod.save();
-
-      res.json({
-        success: true,
-        message: "API token regenerated",
-        apiToken: newToken,
-      });
-    } catch (e) {
-      console.error("REGENERATE API", e);
-      res.status(500).json({ success: false, message: "Server error" });
-    }
-  }
-);
-
-// ======================= PRODUCT ASSIGNMENT ===========================
-
-// MASTER / OWNER → assign product to SOURCE
+// ASSIGN PRODUCT TO SOURCE (MASTER + OWNER)
 app.post(
   "/glom/api/products/assign-source",
   auth,
@@ -515,11 +472,6 @@ app.post(
           .status(404)
           .json({ success: false, message: "Product not found" });
 
-      if (req.user.role === "OWNER" && prod.owner !== req.user.username)
-        return res
-          .status(403)
-          .json({ success: false, message: "Not your product" });
-
       const srcUser = await User.findOne({
         username: sourceUsername,
         role: "SOURCE",
@@ -529,10 +481,11 @@ app.post(
           .status(404)
           .json({ success: false, message: "Source not found" });
 
-      if (!prod.allowedSources.includes(sourceUsername))
+      if (!prod.allowedSources.includes(sourceUsername)) {
         prod.allowedSources.push(sourceUsername);
+        await prod.save();
+      }
 
-      await prod.save();
       res.json({ success: true, product: prod });
     } catch (e) {
       console.error("ASSIGN SOURCE", e);
@@ -541,7 +494,7 @@ app.post(
   }
 );
 
-// SOURCE (أو MASTER/OWNER) → assign product to PANEL
+// ASSIGN PRODUCT TO PANEL (MASTER + OWNER + SOURCE)
 app.post(
   "/glom/api/products/assign-panel",
   auth,
@@ -560,15 +513,15 @@ app.post(
           .status(404)
           .json({ success: false, message: "Product not found" });
 
-      // If SOURCE, must have permission for that product
+      // SOURCE لازم يكون عنده صلاحية على المنتج
       if (
         req.user.role === "SOURCE" &&
         !prod.allowedSources.includes(req.user.username)
-      )
-        return res.status(403).json({
-          success: false,
-          message: "You don't have this product",
-        });
+      ) {
+        return res
+          .status(403)
+          .json({ success: false, message: "You don't have this product" });
+      }
 
       const pnl = await User.findOne({
         username: panelUsername,
@@ -579,10 +532,11 @@ app.post(
           .status(404)
           .json({ success: false, message: "Panel not found" });
 
-      if (!prod.allowedPanels.includes(panelUsername))
+      if (!prod.allowedPanels.includes(panelUsername)) {
         prod.allowedPanels.push(panelUsername);
+        await prod.save();
+      }
 
-      await prod.save();
       res.json({ success: true, product: prod });
     } catch (e) {
       console.error("ASSIGN PANEL", e);
@@ -593,14 +547,15 @@ app.post(
 
 // ======================= KEYS ========================================
 
-// CREATE KEY (MASTER + OWNER + SOURCE)
+// CREATE KEYS (MASTER + OWNER + SOURCE)
+// body: { productId, panelUsername, days, count }
 app.post(
   "/glom/api/keys/create",
   auth,
   allowRoles("MASTER", "OWNER", "SOURCE"),
   async (req, res) => {
     try {
-      const { productId, panelUsername, days } = req.body;
+      const { productId, panelUsername, days, count } = req.body;
       if (!productId || !panelUsername)
         return res
           .status(400)
@@ -612,60 +567,61 @@ app.post(
           .status(404)
           .json({ success: false, message: "Product not found" });
 
-      // Permission checks
-      if (req.user.role === "OWNER" && prod.owner !== req.user.username)
-        return res
-          .status(403)
-          .json({ success: false, message: "Not your product" });
-
+      // SOURCE لازم يكون عنده المنتج
       if (
         req.user.role === "SOURCE" &&
         !prod.allowedSources.includes(req.user.username)
-      )
-        return res.status(403).json({
-          success: false,
-          message: "You don't have this product",
-        });
+      ) {
+        return res
+          .status(403)
+          .json({ success: false, message: "You don't have this product" });
+      }
 
-      if (!prod.allowedPanels.includes(panelUsername))
+      if (!prod.allowedPanels.includes(panelUsername)) {
         return res.status(403).json({
           success: false,
           message: "Panel not assigned for this product",
         });
+      }
 
       const pnl = await User.findOne({
         username: panelUsername,
         role: "PANEL",
       });
       if (!pnl)
-        return res.status(404).json({
-          success: false,
-          message: "Panel user not found",
+        return res
+          .status(404)
+          .json({ success: false, message: "Panel user not found" });
+
+      const total = Number(count) > 0 ? Number(count) : 1;
+      const created = [];
+
+      for (let i = 0; i < total; i++) {
+        const keyValue = randomKey(40);
+
+        let expires = null;
+        if (days && Number(days) > 0) {
+          expires = new Date(Date.now() + Number(days) * 86400000);
+        }
+
+        const doc = await Key.create({
+          productId,
+          key: keyValue,
+          assignedUser: panelUsername,
+          expires,
         });
 
-      // KEY generation
-      const keyValue = randomKey(40);
-
-      let expires = null;
-      if (days && Number(days) > 0) {
-        const now = Date.now();
-        expires = new Date(now + Number(days) * 86400000);
+        created.push({
+          id: doc._id,
+          key: keyValue,
+          expires,
+        });
       }
-
-      const doc = await Key.create({
-        productId,
-        key: keyValue,
-        assignedUser: panelUsername,
-        expires,
-      });
 
       res.json({
         success: true,
-        key: {
-          id: doc._id,
-          value: keyValue,
-          expires,
-        },
+        count: created.length,
+        keys: created,
       });
     } catch (e) {
       console.error("KEY CREATE", e);
@@ -674,7 +630,7 @@ app.post(
   }
 );
 
-// LIST KEYS
+// LIST KEYS (role aware)
 app.get("/glom/api/keys/list", auth, async (req, res) => {
   try {
     const user = await User.findById(req.user.id).lean();
@@ -683,15 +639,10 @@ app.get("/glom/api/keys/list", auth, async (req, res) => {
         .status(404)
         .json({ success: false, message: "User not found" });
 
-    let keys;
-    if (user.role === "MASTER") {
+    let keys = [];
+
+    if (user.role === "MASTER" || user.role === "OWNER") {
       keys = await Key.find({}).lean();
-    } else if (user.role === "OWNER") {
-      const myProducts = await Product.find({
-        owner: user.username,
-      }).lean();
-      const ids = myProducts.map((p) => p._id.toString());
-      keys = await Key.find({ productId: { $in: ids } }).lean();
     } else if (user.role === "SOURCE") {
       const myProducts = await Product.find({
         allowedSources: user.username,
@@ -715,7 +666,6 @@ app.get("/glom/api/keys/list", auth, async (req, res) => {
 
 // ======================= LOADER CHECK + UPDATE PROXY ==================
 
-// CHECK: loader auth + forced update system
 // BODY: { apiToken, key, hwid, version }
 app.post("/glom/api/loader/check", async (req, res) => {
   try {
@@ -734,25 +684,24 @@ app.post("/glom/api/loader/check", async (req, res) => {
       });
 
     const now = new Date();
-    const licence = await Key.findOne({
+    const license = await Key.findOne({
       productId: prod._id.toString(),
       key,
     });
-    if (!licence)
+    if (!license)
       return res.json({
         success: false,
         status: "no_key",
         message: "Key not found",
       });
 
-    if (licence.expires && licence.expires < now)
+    if (license.expires && license.expires < now)
       return res.json({
         success: false,
         status: "expired",
         message: "Key expired",
       });
 
-    // check update
     const upd = await Update.findOne({
       productId: prod._id.toString(),
     }).lean();
@@ -786,7 +735,7 @@ app.post("/glom/api/loader/check", async (req, res) => {
   }
 });
 
-// PUSH UPDATE
+// PUSH UPDATE (MASTER + OWNER)
 // BODY: { productId, version, gofileUrl, note }
 app.post(
   "/glom/api/loader/push-update",
@@ -806,12 +755,6 @@ app.post(
           .status(404)
           .json({ success: false, message: "Product not found" });
 
-      if (req.user.role === "OWNER" && prod.owner !== req.user.username)
-        return res
-          .status(403)
-          .json({ success: false, message: "Not your product" });
-
-      // replace old updates
       await Update.deleteMany({ productId });
 
       const doc = await Update.create({
@@ -881,9 +824,12 @@ app.get("/glom/api/loader/update", async (req, res) => {
   }
 });
 
-// ======================= RESELLER USERS (OWNER / SOURCE / PANEL) ======
+// ======================= USERS / RESELLERS ============================
 
-// Create user with specific role
+// CREATE USER (RESELLER)
+// MASTER: create OWNER / SOURCE / PANEL
+// OWNER : create SOURCE / PANEL (NOT OWNER)
+// SOURCE: create PANEL only
 app.post(
   "/glom/api/users/create",
   auth,
@@ -901,24 +847,27 @@ app.post(
           .status(400)
           .json({ success: false, message: "Invalid role" });
 
-      if (req.user.role === "OWNER" && role === "OWNER")
+      // OWNER cannot create OWNER
+      if (req.user.role === "OWNER" && role === "OWNER") {
         return res.status(403).json({
           success: false,
           message: "OWNER cannot create another OWNER",
         });
+      }
 
-      if (req.user.role === "SOURCE" && role !== "PANEL")
+      // SOURCE can only create PANEL
+      if (req.user.role === "SOURCE" && role !== "PANEL") {
         return res.status(403).json({
           success: false,
           message: "SOURCE can only create PANEL",
         });
+      }
 
       const exists = await User.findOne({ username });
       if (exists)
-        return res.status(400).json({
-          success: false,
-          message: "Username already used",
-        });
+        return res
+          .status(400)
+          .json({ success: false, message: "Username already used" });
 
       const hashed = await bcrypt.hash(password, 10);
 
@@ -951,7 +900,7 @@ app.post(
   }
 );
 
-// LIST USERS
+// LIST USERS (tree)
 app.get("/glom/api/users/list", auth, async (req, res) => {
   try {
     const me = await User.findById(req.user.id).lean();
@@ -961,6 +910,7 @@ app.get("/glom/api/users/list", auth, async (req, res) => {
         .json({ success: false, message: "User not found" });
 
     let users;
+
     if (me.role === "MASTER") {
       users = await User.find({}).lean();
     } else if (me.role === "OWNER") {
@@ -972,7 +922,7 @@ app.get("/glom/api/users/list", auth, async (req, res) => {
         $or: [{ parent: me.username }, { username: me.username }],
       }).lean();
     } else {
-      users = [me];
+      users = [me]; // PANEL يشوف نفسه فقط
     }
 
     res.json({ success: true, users });
@@ -982,7 +932,9 @@ app.get("/glom/api/users/list", auth, async (req, res) => {
   }
 });
 
-// ======================= SIMPLE 2FA TOGGLE (PER-USER) =================
+// ======================= SIMPLE SECURITY (2FA + DISCORD) =============
+
+// Enable 2FA (self)
 app.post("/glom/api/security/2fa/enable", auth, async (req, res) => {
   try {
     const user = await User.findById(req.user.id);
@@ -992,15 +944,9 @@ app.post("/glom/api/security/2fa/enable", auth, async (req, res) => {
         .json({ success: false, message: "User not found" });
 
     if (user.twoFA?.enabled)
-      return res.json({
-        success: true,
-        message: "2FA already enabled",
-      });
+      return res.json({ success: true, message: "2FA already enabled" });
 
-    user.twoFA = {
-      enabled: true,
-      secret: randomKey(32),
-    };
+    user.twoFA = { enabled: true, secret: randomKey(32) };
     await user.save();
 
     res.json({
@@ -1014,6 +960,7 @@ app.post("/glom/api/security/2fa/enable", auth, async (req, res) => {
   }
 });
 
+// Disable 2FA (self)
 app.post("/glom/api/security/2fa/disable", auth, async (req, res) => {
   try {
     const user = await User.findById(req.user.id);
@@ -1032,7 +979,7 @@ app.post("/glom/api/security/2fa/disable", auth, async (req, res) => {
   }
 });
 
-// DISCORD LINK PLACEHOLDER
+// Link Discord (placeholder)
 app.post("/glom/api/security/discord/link", auth, async (req, res) => {
   try {
     const { discordId, discordName } = req.body;
@@ -1047,11 +994,7 @@ app.post("/glom/api/security/discord/link", auth, async (req, res) => {
         .status(404)
         .json({ success: false, message: "User not found" });
 
-    user.discord = {
-      linked: true,
-      id: discordId,
-      name: discordName,
-    };
+    user.discord = { linked: true, id: discordId, name: discordName };
     await user.save();
 
     res.json({ success: true, message: "Discord linked" });
@@ -1061,6 +1004,7 @@ app.post("/glom/api/security/discord/link", auth, async (req, res) => {
   }
 });
 
+// Unlink Discord (self)
 app.post("/glom/api/security/discord/unlink", auth, async (req, res) => {
   try {
     const user = await User.findById(req.user.id);
@@ -1079,7 +1023,7 @@ app.post("/glom/api/security/discord/unlink", auth, async (req, res) => {
   }
 });
 
-// ======================= MASTER SECURITY CONTROL ======================
+// MASTER: force disable 2FA for any user
 app.post(
   "/glom/api/master/disable-2fa",
   auth,
@@ -1101,10 +1045,7 @@ app.post(
       user.twoFA = { enabled: false, secret: "" };
       await user.save();
 
-      res.json({
-        success: true,
-        message: "2FA disabled for user",
-      });
+      res.json({ success: true, message: "2FA disabled for user" });
     } catch (e) {
       console.error("MASTER DISABLE 2FA", e);
       res.status(500).json({ success: false, message: "Server error" });
@@ -1112,6 +1053,7 @@ app.post(
   }
 );
 
+// MASTER: force unlink Discord
 app.post(
   "/glom/api/master/unlink-discord",
   auth,
@@ -1133,10 +1075,7 @@ app.post(
       user.discord = { linked: false, id: "", name: "" };
       await user.save();
 
-      res.json({
-        success: true,
-        message: "Discord unlinked for user",
-      });
+      res.json({ success: true, message: "Discord unlinked for user" });
     } catch (e) {
       console.error("MASTER UNLINK DISCORD", e);
       res.status(500).json({ success: false, message: "Server error" });
@@ -1144,21 +1083,12 @@ app.post(
   }
 );
 
-// ======================= HEALTH CHECK ==========================
+// ======================= HEALTH CHECK =====================
 app.get("/glom/api/ping", (req, res) => {
-  res.json({
-    success: true,
-    message: "GLOM Authorization API is alive",
-  });
+  res.json({ success: true, message: "GLOM Authorization API is alive" });
 });
 
-// ======================= CATCH-ALL FOR FRONTEND ======================
-// مهم: هذا لازم يكون بعد كل مسارات /glom/api عشان ما يكسرها
-app.get("*", (req, res) => {
-  res.sendFile(path.join(__dirname, "theme.html"));
-});
-
-// ======================= START SERVER ================================
+// ======================= START SERVER =====================
 app.listen(PORT, () => {
   console.log(`GLOM Authorization API running on port ${PORT}`);
 });
