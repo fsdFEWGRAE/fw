@@ -821,6 +821,33 @@ app.get("/glom/api/loader/update", async (req, res) => {
   } catch (e) {
     console.error("LOADER UPDATE PROXY", e);
     res.status(500).json({ success: false, message: "Server error" });
+    // REGENERATE PRODUCT API TOKEN (MASTER + OWNER)
+app.post("/glom/api/products/regenerate-api", auth, allowRoles("MASTER", "OWNER"), async (req, res) => {
+  try {
+    const { productId } = req.body;
+    if (!productId) return res.status(400).json({ success: false, message: "Missing productId" });
+
+    const prod = await Product.findById(productId);
+    if (!prod) return res.status(404).json({ success: false, message: "Product not found" });
+
+    // OWNER only on his product
+    if (req.user.role === "OWNER" && prod.owner !== req.user.username)
+      return res.status(403).json({ success: false, message: "Not your product" });
+
+    let newToken = "GLOM_" + randomKey(16);
+
+    // ensure uniqueness
+    while (await Product.findOne({ apiToken: newToken })) {
+      newToken = "GLOM_" + randomKey(16);
+    }
+
+    prod.apiToken = newToken;
+    await prod.save();
+
+    return res.json({ success: true, apiToken: newToken });
+  } catch (e) {
+    console.error("REGENERATE API ERROR", e);
+    return res.status(500).json({ success: false, message: "Server error" });
   }
 });
 
@@ -1092,3 +1119,4 @@ app.get("/glom/api/ping", (req, res) => {
 app.listen(PORT, () => {
   console.log(`GLOM Authorization API running on port ${PORT}`);
 });
+
