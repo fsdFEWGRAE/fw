@@ -1,42 +1,20 @@
 <!DOCTYPE html>
-<html lang="en">
+<html>
 <head>
 <meta charset="UTF-8">
 <title>GLOM Authorization</title>
 <style>
-body {
-  background:#0b0b0b;
-  color:#fff;
-  font-family:Arial;
-}
-h1 { color:#b00000 }
-.card {
-  border:1px solid #333;
-  padding:15px;
-  margin:10px 0;
-}
-button {
-  background:#b00000;
-  color:white;
-  border:none;
-  padding:6px 12px;
-  cursor:pointer;
-}
-input, select {
-  background:#111;
-  color:#fff;
-  border:1px solid #333;
-  padding:6px;
-}
+body { background:#000; color:#fff; font-family:Arial }
+.card { border:1px solid #333; padding:15px; margin:10px }
+button { background:#b00000; color:#fff; border:none; padding:6px 12px }
 .hidden { display:none }
 </style>
 </head>
 <body>
 
-<h1>GLOM Authorization Panel</h1>
+<h2>GLOM Authorization Panel</h2>
 
 <div id="loginCard" class="card">
-  <h3>Login</h3>
   <input id="user" placeholder="Username"><br><br>
   <input id="pass" type="password" placeholder="Password"><br><br>
   <input id="totp" placeholder="2FA (if enabled)"><br><br>
@@ -45,13 +23,8 @@ input, select {
 
 <div id="dashboard" class="hidden">
   <div class="card">
-    <b>User:</b> <span id="uName"></span><br>
-    <b>Role:</b> <span id="uRole"></span>
-  </div>
-
-  <div id="productsBox" class="card hidden">
-    <h3>Products</h3>
-    <div id="products"></div>
+    <span id="uName"></span> | <span id="uRole"></span>
+    <button onclick="logout()">Logout</button>
   </div>
 
   <div class="card">
@@ -65,77 +38,38 @@ let TOKEN = "";
 
 function login() {
   fetch("/auth/login", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
+    method:"POST",
+    headers:{ "Content-Type":"application/json" },
     body: JSON.stringify({
-      username: document.getElementById("user").value,
-      password: document.getElementById("pass").value,
-      totp: document.getElementById("totp").value || undefined
+      username:user.value,
+      password:pass.value,
+      totp:totp.value
     })
-  })
-  .then(async r => {
-    const data = await r.json();
-    if (!r.ok) {
-      alert(data.error || "Login failed");
-      return;
-    }
-
-    TOKEN = data.token;
-    loadDashboard();
-  })
-  .catch(err => {
-    console.error(err);
-    alert("Connection error");
+  }).then(r=>r.json()).then(d=>{
+    if(!d.token){ alert(d.error); return; }
+    TOKEN=d.token;
+    load();
   });
 }
 
-function loadDashboard() {
-  fetch("/dashboard/data", {
-    headers: { "Authorization": "Bearer " + TOKEN }
-  })
-  .then(async r => {
-    const data = await r.json();
-    if (!r.ok) {
-      alert("Unauthorized or session expired");
-      return;
-    }
-
-    document.getElementById("loginCard").classList.add("hidden");
-    document.getElementById("dashboard").classList.remove("hidden");
-
-    document.getElementById("uName").innerText = data.user.username;
-    document.getElementById("uRole").innerText = data.user.role;
-
-    // Products
-    if (data.products && data.products.length) {
-      document.getElementById("productsBox").classList.remove("hidden");
-      document.getElementById("products").innerHTML =
-        data.products.map(p =>
-          `<div>🧩 ${p.name} — <code>${p.apiPath}</code></div>`
-        ).join("");
-    }
-
-    // Licenses
-    document.getElementById("licenses").innerHTML =
-      data.licenses.map(l =>
-        `<div>
-          🔑 <b>${l.product.name}</b> |
-          ${l.type} |
-          ${l.key || l.username} |
-          <span style="color:${l.status === "ACTIVE" ? "lime" : "red"}">
-            ${l.status}
-          </span>
-        </div>`
-      ).join("");
-  })
-  .catch(err => {
-    console.error(err);
-    alert("Failed to load dashboard");
+function load(){
+  fetch("/dashboard/data",{
+    headers:{ Authorization:"Bearer "+TOKEN }
+  }).then(r=>r.json()).then(d=>{
+    loginCard.classList.add("hidden");
+    dashboard.classList.remove("hidden");
+    uName.innerText=d.user.username;
+    uRole.innerText=d.user.role;
+    licenses.innerHTML=d.licenses.map(l=>`<div>${l.product.name} - ${l.key}</div>`).join("");
   });
+}
+
+function logout(){
+  TOKEN="";
+  dashboard.classList.add("hidden");
+  loginCard.classList.remove("hidden");
 }
 </script>
 
-
 </body>
 </html>
-
