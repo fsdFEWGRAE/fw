@@ -40,7 +40,6 @@ const el = id => document.getElementById(id);
 
 function login() {
   el("loginBtn").disabled = true;
-
   fetch("/auth/login", {
     method:"POST",
     headers:{ "Content-Type":"application/json" },
@@ -56,8 +55,8 @@ function login() {
     TOKEN = d.token;
     load();
   })
-  .catch(() => alert("Connection error"))
-  .finally(() => el("loginBtn").disabled = false);
+  .catch(()=>alert("Connection error"))
+  .finally(()=> el("loginBtn").disabled = false);
 }
 
 function load() {
@@ -67,25 +66,20 @@ function load() {
   .then(async r => {
     const d = await r.json().catch(()=>({}));
     if (!r.ok) { alert("Unauthorized"); return; }
-
     el("loginCard").classList.add("hidden");
     el("dashboard").classList.remove("hidden");
     el("uName").innerText = d.user.username;
     el("uRole").innerText = d.user.role;
-
-    el("licenses").innerHTML = (d.licenses || [])
-      .map(l => `<div>${l.product?.name || "?"} - ${l.key || l.username}</div>`)
-      .join("");
+    el("licenses").innerHTML = (d.licenses||[])
+      .map(l => `<div>${l.product?.name || "?"} - ${l.key || l.username}</div>`).join("");
   });
 }
 
 function logout() {
-  TOKEN = "";
+  TOKEN="";
   el("dashboard").classList.add("hidden");
   el("loginCard").classList.remove("hidden");
-  el("user").value = "";
-  el("pass").value = "";
-  el("totp").value = "";
+  el("user").value=""; el("pass").value=""; el("totp").value="";
 }
 </script>
 
