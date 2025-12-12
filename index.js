@@ -17,7 +17,7 @@ import { fileURLToPath } from "url";
 dotenv.config();
 const app = express();
 
-// ---------------- BASIC SETUP ----------------
+// ---------------- BASIC ----------------
 app.use(express.json());
 app.use(cors());
 app.options("*", cors());
@@ -48,7 +48,6 @@ const ProductSchema = new mongoose.Schema({
   authType: { type: String, enum: ["KEY", "USERPASS", "BOTH"] },
   apiPath: { type: String, unique: true },
   note: String,
-  allowedSources: [{ type: mongoose.Schema.Types.ObjectId, ref: "User" }],
   update: {
     latestVersion: String,
     downloadUrl: String,
@@ -116,11 +115,12 @@ app.post("/auth/login", async (req, res) => {
     return res.status(401).json({ error: "Invalid credentials" });
 
   if (u.totp.enabled) {
-    if (!speakeasy.totp.verify({
+    const ok = speakeasy.totp.verify({
       secret: u.totp.secret,
       encoding: "base32",
       token: req.body.totp
-    })) return res.status(401).json({ error: "Invalid 2FA" });
+    });
+    if (!ok) return res.status(401).json({ error: "Invalid 2FA" });
   }
 
   const token = jwt.sign(
