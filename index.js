@@ -1,5 +1,5 @@
 // =====================================================
-// GLOM AUTHORIZATION SYSTEM - FINAL
+// GLOM AUTHORIZATION SYSTEM - FINAL (WITH DB DEBUG)
 // =====================================================
 
 import express from "express";
@@ -7,8 +7,6 @@ import mongoose from "mongoose";
 import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
 import speakeasy from "speakeasy";
-import qrcode from "qrcode";
-import axios from "axios";
 import cors from "cors";
 import dotenv from "dotenv";
 import path from "path";
@@ -29,7 +27,7 @@ const __dirname = path.dirname(__filename);
 // ---------------- DATABASE ----------------
 mongoose.connect(process.env.MONGO_URI)
   .then(() => console.log("MongoDB Connected"))
-  .catch(err => console.error(err));
+  .catch(err => console.error("MongoDB Error:", err));
 
 // =====================================================
 // MODELS
@@ -101,8 +99,8 @@ app.get("/", (req, res) => {
 // AUTH
 // =====================================================
 app.post("/auth/bootstrap", async (req, res) => {
-  if (await User.findOne({ role: "MASTER" }))
-    return res.status(403).json({ error: "Already initialized" });
+  const exists = await User.findOne({ role: "MASTER" });
+  if (exists) return res.status(403).json({ error: "Already initialized" });
 
   const hash = await bcrypt.hash(req.body.password, 10);
   await User.create({ username: req.body.username, password: hash, role: "MASTER" });
@@ -111,16 +109,18 @@ app.post("/auth/bootstrap", async (req, res) => {
 
 app.post("/auth/login", async (req, res) => {
   const u = await User.findOne({ username: req.body.username });
-  if (!u || !(await bcrypt.compare(req.body.password, u.password)))
-    return res.status(401).json({ error: "Invalid credentials" });
+  if (!u) return res.status(401).json({ error: "Invalid credentials" });
+
+  const ok = await bcrypt.compare(req.body.password, u.password);
+  if (!ok) return res.status(401).json({ error: "Invalid credentials" });
 
   if (u.totp.enabled) {
-    const ok = speakeasy.totp.verify({
+    const verified = speakeasy.totp.verify({
       secret: u.totp.secret,
       encoding: "base32",
       token: req.body.totp
     });
-    if (!ok) return res.status(401).json({ error: "Invalid 2FA" });
+    if (!verified) return res.status(401).json({ error: "Invalid 2FA" });
   }
 
   const token = jwt.sign(
@@ -187,6 +187,18 @@ app.post("/glom/api/loader/:name", async (req, res) => {
   }
 
   res.json({ success: true });
+});
+
+// =====================================================
+// 🔎 DB DEBUG (تشخيص فقط)
+// =====================================================
+app.get("/__debug/db", async (req, res) => {
+  const users = await User.find();
+  res.json({
+    mongoUriUsed: process.env.MONGO_URI?.replace(/:\/\/.*@/, "://***@"),
+    count: users.length,
+    users: users.map(u => ({ username: u.username, role: u.role }))
+  });
 });
 
 // =====================================================
