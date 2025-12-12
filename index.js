@@ -168,6 +168,17 @@ app.get("/auth/discord/callback", async (req, res) => {
 
   res.send("Discord linked. You can close this.");
 });
+import path from "path";
+import { fileURLToPath } from "url";
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
+// Serve main panel
+app.get("/", (req, res) => {
+  res.sendFile(path.join(__dirname, "theme.html"));
+});
+
 
 // =====================================================
 app.listen(process.env.PORT || 3000, () =>
@@ -495,3 +506,4 @@ app.post("/users/create", auth(["MASTER", "OWNER"]), async (req, res) => {
 
   res.json(user);
 });
+
