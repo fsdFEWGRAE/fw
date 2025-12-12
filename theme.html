@@ -65,51 +65,77 @@ let TOKEN = "";
 
 function login() {
   fetch("/auth/login", {
-    method:"POST",
-    headers:{ "Content-Type":"application/json" },
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
-      username: user.value,
-      password: pass.value,
-      totp: totp.value
+      username: document.getElementById("user").value,
+      password: document.getElementById("pass").value,
+      totp: document.getElementById("totp").value || undefined
     })
   })
-  .then(r => r.json())
-  .then(d => {
-    TOKEN = d.token;
+  .then(async r => {
+    const data = await r.json();
+    if (!r.ok) {
+      alert(data.error || "Login failed");
+      return;
+    }
+
+    TOKEN = data.token;
     loadDashboard();
+  })
+  .catch(err => {
+    console.error(err);
+    alert("Connection error");
   });
 }
 
 function loadDashboard() {
   fetch("/dashboard/data", {
-    headers:{ "Authorization":"Bearer " + TOKEN }
+    headers: { "Authorization": "Bearer " + TOKEN }
   })
-  .then(r => r.json())
-  .then(d => {
-    loginCard.classList.add("hidden");
-    dashboard.classList.remove("hidden");
-
-    uName.innerText = d.user.username;
-    uRole.innerText = d.user.role;
-
-    if (d.user.role !== "PANEL") {
-      productsBox.classList.remove("hidden");
-      products.innerHTML = d.products.map(p =>
-        `<div>${p.name} — ${p.apiPath}</div>`
-      ).join("");
+  .then(async r => {
+    const data = await r.json();
+    if (!r.ok) {
+      alert("Unauthorized or session expired");
+      return;
     }
 
-    licenses.innerHTML = d.licenses.map(l =>
-      `<div>
-        ${l.product.name} |
-        ${l.type} |
-        ${l.key || l.username} |
-        ${l.status}
-      </div>`
-    ).join("");
+    document.getElementById("loginCard").classList.add("hidden");
+    document.getElementById("dashboard").classList.remove("hidden");
+
+    document.getElementById("uName").innerText = data.user.username;
+    document.getElementById("uRole").innerText = data.user.role;
+
+    // Products
+    if (data.products && data.products.length) {
+      document.getElementById("productsBox").classList.remove("hidden");
+      document.getElementById("products").innerHTML =
+        data.products.map(p =>
+          `<div>🧩 ${p.name} — <code>${p.apiPath}</code></div>`
+        ).join("");
+    }
+
+    // Licenses
+    document.getElementById("licenses").innerHTML =
+      data.licenses.map(l =>
+        `<div>
+          🔑 <b>${l.product.name}</b> |
+          ${l.type} |
+          ${l.key || l.username} |
+          <span style="color:${l.status === "ACTIVE" ? "lime" : "red"}">
+            ${l.status}
+          </span>
+        </div>`
+      ).join("");
+  })
+  .catch(err => {
+    console.error(err);
+    alert("Failed to load dashboard");
   });
 }
 </script>
 
+
 </body>
 </html>
+
